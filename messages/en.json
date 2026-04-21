@@ -1,0 +1,57 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "back": "Back",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "noResults": "No results"
+  },
+  "auth": {
+    "enterPassword": "Enter password",
+    "password": "Password",
+    "continue": "Continue",
+    "login": "Log in",
+    "welcome": "Welcome",
+    "enterPrompt": "Enter the password to continue",
+    "adminPrompt": "Enter admin password",
+    "admin": "Admin"
+  },
+  "root": {
+    "title": "Confirmation Party",
+    "invitePrompt": "Have you received an invitation? Contact the host for your personal link."
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "guests": "Guests",
+    "information": "Information",
+    "program": "Program",
+    "performances": "Performances",
+    "tasks": "Tasks",
+    "pages": "Pages",
+    "photos": "Photos",
+    "memories": "Memories",
+    "gallery": "Gallery",
+    "settings": "Settings"
+  },
+  "guest": {
+    "home": "Home",
+    "program": "Program",
+    "camera": "Take photo",
+    "menu": "Menu",
+    "tasks": "My tasks",
+    "where": "Where",
+    "guests": "Guests",
+    "photos": "Photos",
+    "memories": "Memories",
+    "gallery": "Gallery"
+  }
+}

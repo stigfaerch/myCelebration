@@ -1,0 +1,57 @@
+{
+  "common": {
+    "loading": "Indlæser...",
+    "save": "Gem",
+    "cancel": "Annuller",
+    "delete": "Slet",
+    "edit": "Rediger",
+    "create": "Opret",
+    "back": "Tilbage",
+    "confirm": "Bekræft",
+    "yes": "Ja",
+    "no": "Nej",
+    "close": "Luk",
+    "search": "Søg",
+    "filter": "Filtrer",
+    "noResults": "Ingen resultater"
+  },
+  "auth": {
+    "enterPassword": "Indtast kodeord",
+    "password": "Kodeord",
+    "continue": "Fortsæt",
+    "login": "Log ind",
+    "welcome": "Velkommen",
+    "enterPrompt": "Indtast kodeordet for at fortsætte",
+    "adminPrompt": "Indtast admin-kodeord",
+    "admin": "Admin"
+  },
+  "root": {
+    "title": "Konfirmationsfest",
+    "invitePrompt": "Har du modtaget en invitation? Kontakt værten for at få dit personlige link."
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "guests": "Deltagere",
+    "information": "Information",
+    "program": "Program",
+    "performances": "Indslag",
+    "tasks": "Opgaver",
+    "pages": "Sider",
+    "photos": "Billeder",
+    "memories": "Minder",
+    "gallery": "Galleri",
+    "settings": "Indstillinger"
+  },
+  "guest": {
+    "home": "Hjem",
+    "program": "Program",
+    "camera": "Tag billede",
+    "menu": "Menu",
+    "tasks": "Mine opgaver",
+    "where": "Hvor",
+    "guests": "Gæster",
+    "photos": "Billeder",
+    "memories": "Minder",
+    "gallery": "Galleri"
+  }
+}
