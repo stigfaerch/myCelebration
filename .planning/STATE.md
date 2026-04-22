@@ -1,9 +1,9 @@
 # Project State
 
 ## Current Position
-- **Phase**: 2 of 7 (executed, pending review)
-- **Status**: Phase 2 complete — all 3 plans executed successfully
-- **Last Activity**: Phase 2 execution (2026-04-22)
+- **Phase**: 3 of 7 (planned)
+- **Status**: Phase 3 planned — 2 plans across 2 waves
+- **Last Activity**: Phase 3 planning (2026-04-22)
 
 ## Progress
 ```
@@ -29,5 +29,4 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:review` to verify Phase 2: Admin — Deltagere & Information
-Then run `/legion:plan 3` to plan Phase 3: Admin — Program, Indslag & Opgaver
+Run `/legion:build` to execute Phase 3: Admin — Program, Indslag & Opgaver
