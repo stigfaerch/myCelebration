@@ -108,5 +108,5 @@
 | Phase 3: Admin — Program, Indslag & Opgaver | 2 | 2 | Complete (reviewed) |
 | Phase 4: Admin — Medier, Sider & Galleri | 2 | 2 | Complete (reviewed) |
 | Phase 5: Gæste-sider | 3 | 3 | Complete (reviewed) |
-| Phase 6: Screen & Realtime | 2 | 0 | Not started |
+| Phase 6: Screen & Realtime | 2 | 2 | Executed (pending review) |
 | Phase 7: Polish & Launch | 2 | 0 | Not started |

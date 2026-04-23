@@ -1,13 +1,13 @@
 # Project State
 
 ## Current Position
-- **Phase**: 6 of 7 (planned)
-- **Status**: Phase 6 planned — 2 plans across 2 waves
-- **Last Activity**: Phase 6 planning (2026-04-23)
+- **Phase**: 6 of 7 (executed, pending review)
+- **Status**: Phase 6 executed — 2 plans complete, awaiting review
+- **Last Activity**: Phase 6 execution (2026-04-23)
 
 ## Progress
 ```
-[###############  ] 76% — 13/17 plans complete
+[################# ] 88% — 15/17 plans complete
 ```
 
 ## Recent Decisions
@@ -38,4 +38,4 @@
 5. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:build` to execute Phase 6: Screen & Realtime
+Run `/legion:review` to verify Phase 6: Screen & Realtime
