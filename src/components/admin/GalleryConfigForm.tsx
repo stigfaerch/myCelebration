@@ -1,5 +1,6 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,6 +31,7 @@ function fromDatetimeLocal(value: string): string | null {
 }
 
 export function GalleryConfigForm({ config }: Props) {
+  const router = useRouter()
   const [source, setSource] = useState<GallerySource>(config.source)
   const [intervalSeconds, setIntervalSeconds] = useState<number>(config.interval_seconds)
   const [displayType, setDisplayType] = useState<GalleryDisplayType>(config.display_type)
@@ -38,6 +40,15 @@ export function GalleryConfigForm({ config }: Props) {
   const [filterBefore, setFilterBefore] = useState(toDatetimeLocal(config.filter_before))
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    setSource(config.source)
+    setIntervalSeconds(config.interval_seconds)
+    setDisplayType(config.display_type)
+    setShowMemoryText(config.show_memory_text)
+    setFilterAfter(toDatetimeLocal(config.filter_after))
+    setFilterBefore(toDatetimeLocal(config.filter_before))
+  }, [config])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,6 +73,7 @@ export function GalleryConfigForm({ config }: Props) {
       try {
         await updateGalleryConfig(formData)
         setMessage({ kind: 'success', text: 'Konfiguration gemt' })
+        router.refresh()
       } catch (err) {
         setMessage({
           kind: 'error',

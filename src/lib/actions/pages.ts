@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
+import { clearScreenOverridesFor } from '@/lib/actions/screen'
 
 export interface PageSummary {
   id: string
@@ -37,6 +38,7 @@ export async function getPages(): Promise<PageSummary[]> {
 }
 
 export async function getPage(id: string): Promise<Page | null> {
+  await assertAdmin()
   const { data, error } = await supabaseServer
     .from('pages')
     .select('*')
@@ -45,6 +47,7 @@ export async function getPage(id: string): Promise<Page | null> {
   if (error) throw new Error('Failed to load page')
   return (data as Page | null) ?? null
 }
+
 
 export async function createPage(formData: PageFormData): Promise<void> {
   await assertAdmin()
@@ -90,6 +93,8 @@ export async function updatePage(id: string, formData: PageFormData): Promise<vo
 
 export async function deletePage(id: string): Promise<void> {
   await assertAdmin()
+
+  await clearScreenOverridesFor('page', id)
 
   const { error } = await supabaseServer.from('pages').delete().eq('id', id)
   if (error) throw new Error('Failed to delete page')

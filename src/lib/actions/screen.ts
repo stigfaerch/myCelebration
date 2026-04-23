@@ -82,6 +82,22 @@ export async function setScreenOverride(
   revalidatePath('/admin/galleri')
 }
 
+export async function clearScreenOverridesFor(
+  overrideType: 'page' | 'photo' | 'memory',
+  refId: string
+): Promise<void> {
+  const { error } = await supabaseServer
+    .from('screen_state')
+    .update({
+      current_override: null,
+      override_ref_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('current_override', overrideType)
+    .eq('override_ref_id', refId)
+  if (error) throw new Error('Failed to clear orphan screen overrides')
+}
+
 export async function clearScreenOverride(screenGuestId: string): Promise<void> {
   await assertAdmin()
 

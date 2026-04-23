@@ -25,23 +25,41 @@ export interface GalleryConfigFormData {
   show_memory_text: boolean
 }
 
-export async function getGalleryConfig(): Promise<GalleryConfig> {
+const DEFAULT_GALLERY_CONFIG = {
+  source: 'both' as const,
+  interval_seconds: 8,
+  display_type: 'single' as const,
+  show_memory_text: false,
+  filter_after: null,
+  filter_before: null,
+}
+
+async function ensureGalleryConfig(): Promise<GalleryConfig> {
   const { data, error } = await supabaseServer
     .from('gallery_config')
     .select('*')
-    .single()
+    .limit(1)
+    .maybeSingle()
   if (error) throw new Error('Failed to load gallery configuration')
-  return data as GalleryConfig
+  if (data) return data as GalleryConfig
+
+  const { data: inserted, error: insertError } = await supabaseServer
+    .from('gallery_config')
+    .insert(DEFAULT_GALLERY_CONFIG)
+    .select('*')
+    .single()
+  if (insertError || !inserted) throw new Error('Failed to load gallery configuration')
+  return inserted as GalleryConfig
+}
+
+export async function getGalleryConfig(): Promise<GalleryConfig> {
+  return ensureGalleryConfig()
 }
 
 export async function updateGalleryConfig(formData: GalleryConfigFormData): Promise<void> {
   await assertAdmin()
 
-  const { data: existing, error: existingError } = await supabaseServer
-    .from('gallery_config')
-    .select('id')
-    .single()
-  if (existingError || !existing) throw new Error('Failed to update gallery configuration')
+  const existing = await ensureGalleryConfig()
 
   const { error } = await supabaseServer
     .from('gallery_config')

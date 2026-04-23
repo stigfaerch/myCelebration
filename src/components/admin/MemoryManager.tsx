@@ -1,5 +1,6 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Pencil, Trash2, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,10 +126,20 @@ function MemoryEditForm({ memory, onSave, onCancel }: MemoryEditFormProps) {
 }
 
 export function MemoryManager({ initialMemories }: Props) {
-  const [memories] = useState<Memory[]>(initialMemories)
+  const router = useRouter()
+  const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMemories(initialMemories)
+  }, [initialMemories])
+
+  function handleSaveEdit() {
+    setEditingId(null)
+    router.refresh()
+  }
 
   function handleDelete(memory: Memory) {
     if (!window.confirm(`Slet mindet "${memory.title}"? Dette kan ikke fortrydes.`)) return
@@ -136,6 +147,8 @@ export function MemoryManager({ initialMemories }: Props) {
     startTransition(async () => {
       try {
         await deleteMemory(memory.id)
+        setMemories((prev) => prev.filter((m) => m.id !== memory.id))
+        router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
@@ -169,7 +182,7 @@ export function MemoryManager({ initialMemories }: Props) {
                 <li key={memory.id} className="rounded-md border p-4">
                   <MemoryEditForm
                     memory={memory}
-                    onSave={() => setEditingId(null)}
+                    onSave={handleSaveEdit}
                     onCancel={() => setEditingId(null)}
                   />
                 </li>

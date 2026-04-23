@@ -1,6 +1,7 @@
 'use client'
-import { useState, useTransition } from 'react'
-import { Pencil, Trash2, Plus, Monitor } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronDown, ChevronRight, Pencil, Trash2, Plus, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   deletePage,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/actions/pages'
 import { showOnPrimaryScreen } from '@/lib/actions/screen'
 import { PageForm } from '@/components/admin/PageForm'
+import { RichTextDisplay } from '@/components/admin/RichTextDisplay'
 
 interface Props {
   initialPages: PageSummary[]
@@ -24,17 +26,47 @@ function formatDate(iso: string | null): string {
 }
 
 export function PageManager({ initialPages }: Props) {
-  const [pages] = useState<PageSummary[]>(initialPages)
+  const router = useRouter()
+  const [pages, setPages] = useState<PageSummary[]>(initialPages)
   const [showNewForm, setShowNewForm] = useState(false)
   const [editingPage, setEditingPage] = useState<Page | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [previewCache, setPreviewCache] = useState<Record<string, Record<string, unknown> | null>>({})
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPages(initialPages)
+  }, [initialPages])
 
   function resetForms() {
     setShowNewForm(false)
     setEditingPage(null)
     setEditingId(null)
+    router.refresh()
+  }
+
+  function togglePreview(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+        if (!(id in previewCache)) {
+          startTransition(async () => {
+            try {
+              const page = await getPage(id)
+              setPreviewCache((cache) => ({ ...cache, [id]: page?.content ?? null }))
+            } catch (err) {
+              setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+            }
+          })
+        }
+      }
+      return next
+    })
   }
 
   function handleEdit(id: string) {
@@ -63,6 +95,8 @@ export function PageManager({ initialPages }: Props) {
     startTransition(async () => {
       try {
         await deletePage(id)
+        setPages((prev) => prev.filter((p) => p.id !== id))
+        router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
@@ -98,9 +132,27 @@ export function PageManager({ initialPages }: Props) {
               )
             }
 
+            const isExpanded = expandedIds.has(page.id)
+            const previewContent = previewCache[page.id]
+
             return (
-              <li key={page.id} className="rounded-md border p-3">
-                <div className="flex items-center justify-between gap-2">
+              <li key={page.id} className="rounded-md border">
+                <div className="flex items-center justify-between gap-2 p-3">
+                  <button
+                    type="button"
+                    className="text-muted-foreground"
+                    onClick={() => togglePreview(page.id)}
+                    aria-label={
+                      isExpanded ? `Skjul indhold for ${page.title}` : `Vis indhold for ${page.title}`
+                    }
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{page.title}</span>
@@ -157,6 +209,18 @@ export function PageManager({ initialPages }: Props) {
                     </Button>
                   </div>
                 </div>
+
+                {isExpanded && (
+                  <div className="border-t px-3 py-2 bg-muted/30">
+                    {previewContent === undefined ? (
+                      <p className="text-xs text-muted-foreground">Indlæser…</p>
+                    ) : previewContent === null ? (
+                      <p className="text-xs text-muted-foreground italic">Intet indhold.</p>
+                    ) : (
+                      <RichTextDisplay content={previewContent} />
+                    )}
+                  </div>
+                )}
               </li>
             )
           })}

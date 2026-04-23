@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
+import { clearScreenOverridesFor } from '@/lib/actions/screen'
 
 export interface PhotoGuest {
   id: string
@@ -25,6 +26,12 @@ export interface PhotoFilters {
   active?: boolean | null
 }
 
+function normalizeGuest(raw: unknown): PhotoGuest | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) return (raw[0] as PhotoGuest) ?? null
+  return raw as PhotoGuest
+}
+
 export async function getPhotos(filters: PhotoFilters = {}): Promise<Photo[]> {
   let query = supabaseServer
     .from('photos')
@@ -37,7 +44,10 @@ export async function getPhotos(filters: PhotoFilters = {}): Promise<Photo[]> {
 
   const { data, error } = await query
   if (error) throw new Error('Failed to load photos')
-  return (data ?? []) as Photo[]
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    ...(row as unknown as Photo),
+    guests: normalizeGuest(row.guests),
+  })) as Photo[]
 }
 
 export async function togglePhotoActive(id: string, is_active: boolean): Promise<void> {
@@ -54,6 +64,8 @@ export async function togglePhotoActive(id: string, is_active: boolean): Promise
 
 export async function deletePhoto(id: string): Promise<void> {
   await assertAdmin()
+
+  await clearScreenOverridesFor('photo', id)
 
   const { error } = await supabaseServer.from('photos').delete().eq('id', id)
   if (error) throw new Error('Failed to delete photo')
