@@ -86,6 +86,7 @@ export async function clearScreenOverridesFor(
   overrideType: 'page' | 'photo' | 'memory',
   refId: string
 ): Promise<void> {
+  await assertAdmin()
   const { error } = await supabaseServer
     .from('screen_state')
     .update({
