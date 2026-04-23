@@ -1,9 +1,9 @@
 # Project State
 
 ## Current Position
-- **Phase**: 4 of 7 (complete)
-- **Status**: Phase 4 complete — review passed (2 cycles)
-- **Last Activity**: Phase 4 review passed (2026-04-23)
+- **Phase**: 5 of 7 (planned)
+- **Status**: Phase 5 planned — 3 plans across 2 waves
+- **Last Activity**: Phase 5 planning (2026-04-23)
 
 ## Progress
 ```
@@ -21,10 +21,14 @@
 - `assertAdmin()` på alle muterende server actions
 - PL/pgSQL `swap_program_items` RPC for atomisk sort_order swap
 - Image handling conventions: original/medium/thumb storage, async processing, fallback chain
+- `normalizeGuest()` pattern for PostgREST join-shape drift (untyped Supabase client)
+- `clearScreenOverridesFor(type, id)` before deleting any page/photo/memory to avoid dangling screen_state refs
+- Guest auth: `resolveGuest()` / `assertGuest(id)` / `assertNotScreen()` via middleware-injected x-guest-* headers
 
 ## Manual Actions Required (Supabase Storage)
 1. Opret bucket `invitations` i Supabase Dashboard → Storage (public: true)
 2. Opret bucket `maps` i Supabase Dashboard → Storage (public: true)
+3. Opret bucket `images` i Supabase Dashboard → Storage (public: true) — Phase 5 photos + memories
 
 ## Manual Actions Required (First-time setup — still pending)
 1. Opret Supabase-projekt på supabase.com
@@ -33,4 +37,4 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:plan 5` to plan Phase 5: Gæste-sider
+Run `/legion:build` to execute Phase 5: Gæste-sider
