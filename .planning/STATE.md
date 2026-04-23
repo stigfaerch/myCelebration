@@ -1,13 +1,13 @@
 # Project State
 
 ## Current Position
-- **Phase**: 5 of 7 (planned)
-- **Status**: Phase 5 planned — 3 plans across 2 waves
-- **Last Activity**: Phase 5 planning (2026-04-23)
+- **Phase**: 5 of 7 (executed, pending review)
+- **Status**: Phase 5 executed — 3 plans complete, awaiting review
+- **Last Activity**: Phase 5 execution (2026-04-23)
 
 ## Progress
 ```
-[############     ] 58% — 10/17 plans complete
+[###############  ] 76% — 13/17 plans complete
 ```
 
 ## Recent Decisions
@@ -37,4 +37,4 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:build` to execute Phase 5: Gæste-sider
+Run `/legion:review` to verify Phase 5: Gæste-sider
