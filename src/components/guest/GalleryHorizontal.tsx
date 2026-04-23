@@ -144,27 +144,35 @@ export function GalleryHorizontal({ config, items }: Props) {
     )
   }
 
+  // Quad needs 4 items, Frames needs 3. Downgrade to SingleView when the
+  // gallery has too few items to avoid rendering duplicates.
+  const effectiveType: GalleryConfig['display_type'] =
+    (config.display_type === 'quad' && items.length < 4) ||
+    (config.display_type === 'frames' && items.length < 3)
+      ? 'single'
+      : config.display_type
+
   return (
     <div
       className="relative h-full w-full"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {config.display_type === 'single' && (
+      {effectiveType === 'single' && (
         <SingleView
           items={items}
           index={index % items.length}
           showMemoryText={config.show_memory_text}
         />
       )}
-      {config.display_type === 'quad' && (
+      {effectiveType === 'quad' && (
         <QuadView
           items={items}
           index={index % items.length}
           showMemoryText={config.show_memory_text}
         />
       )}
-      {config.display_type === 'frames' && (
+      {effectiveType === 'frames' && (
         <FramesView
           items={items}
           index={index % items.length}

@@ -1,7 +1,9 @@
 import { supabaseServer } from '@/lib/supabase/server'
+import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { GuestList } from '@/components/guest/GuestList'
 
 export default async function DeltagerePage() {
+  await resolveGuest()
   const { data, error } = await supabaseServer
     .from('guests')
     .select('id, name, type, relation')

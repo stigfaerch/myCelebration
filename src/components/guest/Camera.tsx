@@ -18,6 +18,7 @@ export function Camera({ uuid }: Props) {
   const router = useRouter()
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const streamRef = React.useRef<MediaStream | null>(null)
+  const navTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ready, setReady] = React.useState(false)
   const [error, setError] = React.useState<CameraError | null>(null)
   const [isPending, startTransition] = React.useTransition()
@@ -65,6 +66,10 @@ export function Camera({ uuid }: Props) {
         streamRef.current.getTracks().forEach((t) => t.stop())
         streamRef.current = null
       }
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current)
+        navTimerRef.current = null
+      }
     }
   }, [])
 
@@ -97,7 +102,9 @@ export function Camera({ uuid }: Props) {
           try {
             await createPhotoFromFile(formData)
             setShowSavedToast(true)
-            setTimeout(() => {
+            if (navTimerRef.current) clearTimeout(navTimerRef.current)
+            navTimerRef.current = setTimeout(() => {
+              navTimerRef.current = null
               router.push(`/${uuid}/billeder`)
             }, 600)
           } catch (err) {

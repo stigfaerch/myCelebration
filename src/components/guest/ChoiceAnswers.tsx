@@ -24,19 +24,39 @@ export function ChoiceAnswers({ definitions, initialAnswers }: Props) {
   const [saveState, setSaveState] = React.useState<Record<string, SaveState>>({})
   const [errorMessages, setErrorMessages] = React.useState<Record<string, string>>({})
   const timers = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const saveStateRef = React.useRef(saveState)
+  const valuesRef = React.useRef(values)
+  saveStateRef.current = saveState
+  valuesRef.current = values
 
-  // Resync local values when server sends fresh answers (React 19 pattern —
-  // derive during render rather than useEffect to avoid cascading renders).
+  // Resync local values from server, but preserve any entry that is currently
+  // saving (mid-flight) or errored. This prevents clobbering a user's in-flight
+  // text when router.refresh() lands mid-typing.
   if (prevInitial !== initialAnswers) {
     setPrevInitial(initialAnswers)
-    setValues(initialAnswers)
+    setValues((prev) => {
+      const next: Record<string, string> = { ...initialAnswers }
+      for (const [id, state] of Object.entries(saveStateRef.current)) {
+        if (state === 'saving' || state === 'error') {
+          next[id] = prev[id] ?? ''
+        }
+      }
+      return next
+    })
   }
 
-  // Clear all timers on unmount
+  // On unmount: fire any pending debounced save synchronously (fire-and-forget)
+  // so the user's last keystroke isn't silently dropped on navigation.
   React.useEffect(() => {
     const t = timers.current
     return () => {
-      Object.values(t).forEach((id) => clearTimeout(id))
+      Object.entries(t).forEach(([id, timerId]) => {
+        clearTimeout(timerId)
+        if (saveStateRef.current[id] === 'saving') {
+          const value = valuesRef.current[id]
+          void upsertChoiceAnswer(id, value && value.trim() !== '' ? value : null).catch(() => {})
+        }
+      })
     }
   }, [])
 

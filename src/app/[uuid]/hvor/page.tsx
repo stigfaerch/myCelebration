@@ -1,7 +1,9 @@
 import { supabaseServer } from '@/lib/supabase/server'
+import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { EventMapDisplay } from '@/components/guest/EventMapDisplay'
 
 export default async function HvorPage() {
+  await resolveGuest()
   const { data: events, error } = await supabaseServer
     .from('events')
     .select('*, event_locations(id, title, description)')

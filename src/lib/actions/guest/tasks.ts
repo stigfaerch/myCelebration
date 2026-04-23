@@ -132,36 +132,74 @@ export async function getMySwapRequests(): Promise<MySwapRequest[]> {
   return (data ?? []) as MySwapRequest[]
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export async function createSwapRequest(
   assignmentId: string,
   desiredTaskIds: string[]
 ): Promise<void> {
   const guest = await assertNotScreen()
 
+  if (!UUID_RE.test(assignmentId)) throw new Error('Ugyldige bytte-mål')
   if (!Array.isArray(desiredTaskIds) || desiredTaskIds.length === 0) {
     throw new Error('Ugyldige bytte-mål')
   }
+  if (!desiredTaskIds.every((id) => typeof id === 'string' && UUID_RE.test(id))) {
+    throw new Error('Ugyldige bytte-mål')
+  }
 
-  // Verify assignment ownership
+  const uniqueDesired = Array.from(new Set(desiredTaskIds))
+  if (uniqueDesired.length !== desiredTaskIds.length) {
+    throw new Error('Ugyldige bytte-mål')
+  }
+
+  // Verify assignment ownership + capture own task_id to exclude it as a target
   const { data: assignment, error: assignmentErr } = await supabaseServer
     .from('task_assignments')
-    .select('id, guest_id')
+    .select('id, guest_id, task_id')
     .eq('id', assignmentId)
     .maybeSingle()
   if (assignmentErr) throw new Error('Failed to verify assignment')
   if (!assignment) throw new Error('Not found')
-  if ((assignment as { guest_id: string }).guest_id !== guest.id) {
-    throw new Error('Forbidden')
+  const ownAssignment = assignment as { guest_id: string; task_id: string }
+  if (ownAssignment.guest_id !== guest.id) throw new Error('Forbidden')
+
+  // Reject if any desired target is the assignment's own task
+  if (uniqueDesired.includes(ownAssignment.task_id)) {
+    throw new Error('Ugyldige bytte-mål')
   }
 
-  // Verify none of the desired tasks have contact_host=true
+  // Reject if any desired target is a task the requester is already assigned to
+  const { data: mineRows, error: mineErr } = await supabaseServer
+    .from('task_assignments')
+    .select('task_id')
+    .eq('guest_id', guest.id)
+  if (mineErr) throw new Error('Failed to verify assignments')
+  const myTaskIds = new Set(((mineRows ?? []) as Array<{ task_id: string }>).map((r) => r.task_id))
+  if (uniqueDesired.some((id) => myTaskIds.has(id))) {
+    throw new Error('Ugyldige bytte-mål')
+  }
+
+  // Reject if a pending swap request already exists for this assignment
+  const { data: existing, error: existingErr } = await supabaseServer
+    .from('swap_requests')
+    .select('id')
+    .eq('requester_assignment_id', assignmentId)
+    .eq('status', 'pending')
+    .limit(1)
+  if (existingErr) throw new Error('Failed to check existing swap requests')
+  if (existing && existing.length > 0) {
+    throw new Error('Der er allerede en aktiv bytte-forespørgsel for denne opgave')
+  }
+
+  // Verify all desired tasks exist and none have contact_host=true
   const { data: targets, error: targetsErr } = await supabaseServer
     .from('tasks')
     .select('id, contact_host')
-    .in('id', desiredTaskIds)
+    .in('id', uniqueDesired)
   if (targetsErr) throw new Error('Failed to verify targets')
   const targetRows = (targets ?? []) as Array<{ id: string; contact_host: boolean }>
-  if (targetRows.length !== desiredTaskIds.length) {
+  if (targetRows.length !== uniqueDesired.length) {
     throw new Error('Ugyldige bytte-mål')
   }
   if (targetRows.some((t) => t.contact_host)) {
@@ -170,7 +208,7 @@ export async function createSwapRequest(
 
   const { error } = await supabaseServer.from('swap_requests').insert({
     requester_assignment_id: assignmentId,
-    desired_task_ids: desiredTaskIds,
+    desired_task_ids: uniqueDesired,
     status: 'pending',
   })
   if (error) throw new Error('Failed to create swap request')

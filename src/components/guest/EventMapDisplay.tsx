@@ -17,7 +17,28 @@ interface EventMapDisplayProps {
   }
 }
 
+// Extract the iframe src from an admin-pasted Google Maps embed snippet, or
+// accept a bare URL. Rejects any src that isn't google.com/maps/embed — this
+// blocks arbitrary HTML/JS injection via admin-supplied embed HTML.
+function extractMapsEmbedSrc(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const srcMatch = /src\s*=\s*"([^"]+)"/i.exec(trimmed) ?? /src\s*=\s*'([^']+)'/i.exec(trimmed)
+  const candidate = srcMatch ? srcMatch[1] : trimmed
+  try {
+    const url = new URL(candidate)
+    if (url.protocol !== 'https:') return null
+    if (url.hostname !== 'www.google.com' && url.hostname !== 'maps.google.com') return null
+    if (!url.pathname.startsWith('/maps/embed')) return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
 export function EventMapDisplay({ event }: EventMapDisplayProps) {
+  const safeMapsSrc = event.google_maps_embed ? extractMapsEmbedSrc(event.google_maps_embed) : null
+
   return (
     <section className="space-y-4">
       <div className="space-y-1">
@@ -27,11 +48,18 @@ export function EventMapDisplay({ event }: EventMapDisplayProps) {
         ) : null}
       </div>
 
-      {event.google_maps_embed ? (
-        <div
-          className="aspect-video w-full overflow-hidden rounded border [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
-          dangerouslySetInnerHTML={{ __html: event.google_maps_embed }}
-        />
+      {safeMapsSrc ? (
+        <div className="aspect-video w-full overflow-hidden rounded border">
+          <iframe
+            src={safeMapsSrc}
+            className="h-full w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            title={`Kort: ${event.name}`}
+          />
+        </div>
       ) : null}
 
       {event.map_image_url ? (
