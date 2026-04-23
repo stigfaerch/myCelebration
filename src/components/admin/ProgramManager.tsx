@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronRight, Plus, Trash2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getProgramItems, moveProgramItemUp, moveProgramItemDown, deleteProgramItem } from '@/lib/actions/program'
@@ -44,15 +44,28 @@ export function ProgramManager({ items, performances }: Props) {
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const topItems = items
-    .filter((i) => i.parent_id === null)
-    .sort((a, b) => a.sort_order - b.sort_order)
+  const topLevelItems = useMemo(
+    () => items.filter((i) => i.parent_id === null).sort((a, b) => a.sort_order - b.sort_order),
+    [items]
+  )
 
-  function childrenOf(parentId: string) {
-    return items
-      .filter((i) => i.parent_id === parentId)
-      .sort((a, b) => a.sort_order - b.sort_order)
-  }
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, Items[number][]>()
+    for (const item of items) {
+      if (item.parent_id) {
+        const list = map.get(item.parent_id)
+        if (list) {
+          list.push(item)
+        } else {
+          map.set(item.parent_id, [item])
+        }
+      }
+    }
+    for (const children of map.values()) {
+      children.sort((a, b) => a.sort_order - b.sort_order)
+    }
+    return map
+  }, [items])
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -114,12 +127,10 @@ export function ProgramManager({ items, performances }: Props) {
     return guestName ? `${guestName} — ${perf.performances.title}` : perf.performances.title
   }
 
-  const topLevelItems = items.filter((i) => i.parent_id === null)
-
   function renderItemRow(item: Items[number], isChild: boolean) {
     const isEditing = editingItem?.id === item.id
     const isAddingChild = newItemParentId === item.id
-    const children = childrenOf(item.id)
+    const children = childrenMap.get(item.id) ?? []
     const isExpanded = expandedIds.has(item.id)
     const perfName = getPerformanceName(item)
 
@@ -129,7 +140,7 @@ export function ProgramManager({ items, performances }: Props) {
           <ProgramItemForm
             item={item}
             performances={performances}
-            topLevelItems={topLevelItems}
+            items={items}
             onSave={resetForms}
             onCancel={resetForms}
           />
@@ -140,12 +151,12 @@ export function ProgramManager({ items, performances }: Props) {
     return (
       <li key={item.id} className={isChild ? 'rounded-md border border-dashed' : 'rounded-md border'}>
         <div className="flex items-center justify-between p-3 gap-2">
-          {/* Expand toggle — only for top-level items with children */}
           {!isChild && children.length > 0 ? (
             <button
               type="button"
               className="text-muted-foreground"
               onClick={() => toggleExpand(item.id)}
+              aria-label={isExpanded ? `Skjul underpunkter for ${item.title}` : `Vis underpunkter for ${item.title}`}
             >
               {isExpanded
                 ? <ChevronDown className="h-4 w-4" />
@@ -155,12 +166,10 @@ export function ProgramManager({ items, performances }: Props) {
             <span className="w-4" />
           )}
 
-          {/* Type badge */}
           <span className={`rounded px-2 py-0.5 text-xs font-medium shrink-0 ${TYPE_COLORS[item.type] ?? 'bg-gray-100 text-gray-700'}`}>
             {TYPE_LABELS[item.type] ?? item.type}
           </span>
 
-          {/* Title + time + performance */}
           <div className="flex-1 min-w-0">
             <span className="font-medium text-sm">{item.title}</span>
             {item.start_time && (
@@ -174,7 +183,6 @@ export function ProgramManager({ items, performances }: Props) {
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-1 shrink-0">
             <Button
               type="button"
@@ -182,7 +190,7 @@ export function ProgramManager({ items, performances }: Props) {
               size="sm"
               disabled={isPending}
               onClick={() => handleMoveUp(item.id)}
-              title="Flyt op"
+              aria-label={`Flyt ${item.title} op`}
             >
               <ChevronUp className="h-4 w-4" />
             </Button>
@@ -192,7 +200,7 @@ export function ProgramManager({ items, performances }: Props) {
               size="sm"
               disabled={isPending}
               onClick={() => handleMoveDown(item.id)}
-              title="Flyt ned"
+              aria-label={`Flyt ${item.title} ned`}
             >
               <ChevronDown className="h-4 w-4" />
             </Button>
@@ -201,7 +209,7 @@ export function ProgramManager({ items, performances }: Props) {
               variant="ghost"
               size="sm"
               onClick={() => setEditingItem(item)}
-              title="Rediger"
+              aria-label={`Rediger ${item.title}`}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -211,18 +219,17 @@ export function ProgramManager({ items, performances }: Props) {
               size="sm"
               disabled={isPending}
               onClick={() => handleDelete(item.id, item.title)}
-              title="Slet"
+              aria-label={`Slet ${item.title}`}
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
-            {/* Plus only for top-level items — one level of nesting */}
             {!isChild && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => { setNewItemParentId(item.id); setShowNewForm(false); setEditingItem(null) }}
-                title="Tilføj underpunkt"
+                aria-label={`Tilføj underpunkt til ${item.title}`}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -230,13 +237,12 @@ export function ProgramManager({ items, performances }: Props) {
           </div>
         </div>
 
-        {/* Inline child-creation form */}
         {isAddingChild && (
           <div className="border-t px-4 pb-4 pt-3">
             <h3 className="mb-3 text-sm font-medium">Nyt underpunkt</h3>
             <ProgramItemForm
               performances={performances}
-              topLevelItems={topLevelItems}
+              items={items}
               defaultParentId={item.id}
               onSave={resetForms}
               onCancel={resetForms}
@@ -244,7 +250,6 @@ export function ProgramManager({ items, performances }: Props) {
           </div>
         )}
 
-        {/* Children */}
         {!isChild && isExpanded && children.length > 0 && (
           <div className="border-t px-3 pb-3 pt-2">
             <ul className="space-y-2 pl-4">
@@ -262,11 +267,11 @@ export function ProgramManager({ items, performances }: Props) {
         <p className="text-sm text-destructive">{actionError}</p>
       )}
 
-      {topItems.length === 0 ? (
+      {topLevelItems.length === 0 ? (
         <p className="text-sm text-muted-foreground">Ingen programpunkter endnu.</p>
       ) : (
         <ul className="space-y-2">
-          {topItems.map((item) => renderItemRow(item, false))}
+          {topLevelItems.map((item) => renderItemRow(item, false))}
         </ul>
       )}
 
@@ -275,7 +280,7 @@ export function ProgramManager({ items, performances }: Props) {
           <h3 className="mb-3 text-sm font-medium">Nyt programpunkt</h3>
           <ProgramItemForm
             performances={performances}
-            topLevelItems={topLevelItems}
+            items={items}
             onSave={resetForms}
             onCancel={resetForms}
           />

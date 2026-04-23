@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
+import { assertAdmin } from '@/lib/auth/assertAdmin'
 
 export interface Task {
   id: string
@@ -19,7 +20,7 @@ export async function getTasks() {
     .from('tasks')
     .select('*, task_assignments(id, guest_id, is_owner, guests(id, name, type))')
     .order('sort_order')
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to load tasks')
   return data
 }
 
@@ -31,8 +32,9 @@ export async function createTask(formData: {
   max_persons?: number | null
   contact_host: boolean
 }) {
+  await assertAdmin()
   const { error } = await supabaseServer.from('tasks').insert(formData)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to create task')
   revalidatePath('/admin/opgaver')
 }
 
@@ -44,56 +46,58 @@ export async function updateTask(id: string, formData: {
   max_persons?: number | null
   contact_host: boolean
 }) {
+  await assertAdmin()
   const { error } = await supabaseServer.from('tasks').update(formData).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to update task')
   revalidatePath('/admin/opgaver')
 }
 
 export async function deleteTask(id: string) {
+  await assertAdmin()
   const { error } = await supabaseServer.from('tasks').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to delete task')
   revalidatePath('/admin/opgaver')
 }
 
 export async function toggleContactHost(id: string, contact_host: boolean) {
+  await assertAdmin()
   const { error } = await supabaseServer
     .from('tasks')
     .update({ contact_host })
     .eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to update contact host setting')
   revalidatePath('/admin/opgaver')
 }
 
 export async function assignGuestToTask(taskId: string, guestId: string) {
-  const { data: existing } = await supabaseServer
-    .from('task_assignments')
-    .select('id')
-    .eq('task_id', taskId)
-    .eq('guest_id', guestId)
-    .maybeSingle()
-  if (existing) return
-
+  await assertAdmin()
   const { error } = await supabaseServer
     .from('task_assignments')
-    .insert({ task_id: taskId, guest_id: guestId, is_owner: false })
-  if (error) throw new Error(error.message)
+    .upsert(
+      { task_id: taskId, guest_id: guestId, is_owner: false },
+      { onConflict: 'task_id,guest_id' }
+    )
+  if (error) throw new Error('Failed to assign guest')
   revalidatePath('/admin/opgaver')
 }
 
 export async function removeGuestFromTask(assignmentId: string) {
+  await assertAdmin()
   const { error } = await supabaseServer
     .from('task_assignments')
     .delete()
     .eq('id', assignmentId)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to remove assignment')
   revalidatePath('/admin/opgaver')
 }
 
+// contact_host enforcement is handled in the guest-facing swap flow (Phase 6)
 export async function moveGuestToTask(assignmentId: string, newTaskId: string) {
+  await assertAdmin()
   const { error } = await supabaseServer
     .from('task_assignments')
     .update({ task_id: newTaskId })
     .eq('id', assignmentId)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to move assignment')
   revalidatePath('/admin/opgaver')
 }

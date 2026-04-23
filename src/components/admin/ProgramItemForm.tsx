@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { getProgramItems, createProgramItem, updateProgramItem, type ProgramItemType } from '@/lib/actions/program'
 import { getPerformances } from '@/lib/actions/performances'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ type Performances = Awaited<ReturnType<typeof getPerformances>>
 interface Props {
   item?: Items[number]
   performances: Performances
-  topLevelItems: Items
+  items: Items
   defaultParentId?: string | null
   onSave: () => void
   onCancel: () => void
@@ -38,14 +38,22 @@ function getGuestName(perf: Performances[number]): string {
   return (guests as { name: string }).name ?? ''
 }
 
-export function ProgramItemForm({ item, performances, topLevelItems, defaultParentId, onSave, onCancel }: Props) {
+export function ProgramItemForm({ item, performances, items, defaultParentId, onSave, onCancel }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<ProgramItemType>(item?.type ?? 'info')
 
-  // Determine whether to show the parent_id selector:
-  // Show when creating new, or when editing a child item (parent_id !== null)
-  const showParentSelect = !item || item.parent_id !== null
+  const topLevelItems = useMemo(
+    () => items.filter((i) => i.parent_id === null),
+    [items]
+  )
+
+  const hasChildren = useMemo(
+    () => item ? items.some((i) => i.parent_id === item.id) : false,
+    [items, item]
+  )
+
+  const showParentSelect = !item || !hasChildren
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -94,12 +102,10 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
     (p) => p.status === 'approved' || p.status === 'scheduled'
   )
 
-  // Default parent_id value to show in select
   const parentIdDefault = item?.parent_id ?? defaultParentId ?? ''
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Title */}
       <div className="space-y-1">
         <label htmlFor="pi-title" className="text-sm font-medium">Titel *</label>
         <input
@@ -112,7 +118,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         />
       </div>
 
-      {/* Type */}
       <div className="space-y-1">
         <label htmlFor="pi-type" className="text-sm font-medium">Type</label>
         <select
@@ -128,7 +133,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         </select>
       </div>
 
-      {/* Start time */}
       <div className="space-y-1">
         <label htmlFor="pi-start-time" className="text-sm font-medium">Starttid</label>
         <input
@@ -140,7 +144,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         />
       </div>
 
-      {/* Duration */}
       <div className="space-y-1">
         <label htmlFor="pi-duration" className="text-sm font-medium">Varighed (minutter)</label>
         <input
@@ -153,7 +156,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         />
       </div>
 
-      {/* Performance select — only when type is 'performance' */}
       {selectedType === 'performance' && (
         <div className="space-y-1">
           <label htmlFor="pi-performance" className="text-sm font-medium">Indslag</label>
@@ -163,11 +165,11 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
             defaultValue={item?.performance_id ?? ''}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">— Vælg indslag (valgfrit) —</option>
+            <option value="">-- Vlg indslag (valgfrit) --</option>
             {approvedPerformances.map((p) => {
               const guestName = getGuestName(p)
               const label = guestName
-                ? `${guestName} — ${p.title}${p.duration_minutes ? ` (${p.duration_minutes} min)` : ''}`
+                ? `${guestName} -- ${p.title}${p.duration_minutes ? ` (${p.duration_minutes} min)` : ''}`
                 : `${p.title}${p.duration_minutes ? ` (${p.duration_minutes} min)` : ''}`
               return (
                 <option key={p.id} value={p.id}>{label}</option>
@@ -177,7 +179,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         </div>
       )}
 
-      {/* Parent select — only for new items or child items being edited */}
       {showParentSelect && (
         <div className="space-y-1">
           <label htmlFor="pi-parent" className="text-sm font-medium">Overordnet punkt</label>
@@ -187,7 +188,7 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
             defaultValue={parentIdDefault}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">— Ingen (top-niveau) —</option>
+            <option value="">-- Ingen (top-niveau) --</option>
             {topLevelItems
               .filter((t) => t.id !== item?.id)
               .map((t) => (
@@ -197,7 +198,6 @@ export function ProgramItemForm({ item, performances, topLevelItems, defaultPare
         </div>
       )}
 
-      {/* Notes */}
       <div className="space-y-1">
         <label htmlFor="pi-notes" className="text-sm font-medium">Noter</label>
         <textarea

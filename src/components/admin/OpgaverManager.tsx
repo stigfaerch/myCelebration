@@ -100,6 +100,7 @@ function TaskRow({
             variant="ghost"
             size="sm"
             onClick={() => setEditing(true)}
+            aria-label={`Rediger ${task.title}`}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -109,6 +110,7 @@ function TaskRow({
             size="sm"
             disabled={isPending}
             onClick={handleDelete}
+            aria-label={`Slet ${task.title}`}
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>

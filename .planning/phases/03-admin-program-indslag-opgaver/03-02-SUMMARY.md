@@ -34,6 +34,6 @@ Complete
 - `moveProgramItemUp`/`Down` do not handle duplicate `sort_order` values. If items are inserted with colliding sort_orders, the swap may not produce the expected result. Sort order is assigned as `count` at insert time which is safe under sequential creates but not under concurrent inserts.
 
 ## Handoff Notes
-- `/admin/program` route is live. Navigation link may need to be added to the admin sidebar (not in scope for this plan).
+- `/admin/program` route is live. Sidebar nav link already present (`src/app/(admin)/layout.tsx:18`) — no action needed.
 - `getPerformances` is imported from `@/lib/actions/performances` as established by Plan 03-01 — that dependency is stable.
-- The `program_items` table must exist in Supabase with the schema described in the plan (id, title, start_time, duration_minutes, type, performance_id, sort_order, parent_id, notes, created_at) for the page to function at runtime.
+- The `program_items` table schema in `supabase/migrations/001_initial_schema.sql` was amended during Phase 3 review cycle 1 (2026-04-22) to match the fields this code assumes; the plan's original schema description never matched migration 001 — see 03-REVIEW.md for the drift analysis.

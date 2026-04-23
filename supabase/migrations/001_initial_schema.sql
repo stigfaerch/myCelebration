@@ -8,7 +8,9 @@
 create type guest_type as enum ('main_person', 'family', 'friend', 'screen');
 create type invitation_accepted_by as enum ('guest', 'admin');
 create type task_participation as enum ('none', 'easy', 'all');
-create type performance_status as enum ('no', 'maybe', 'yes');
+create type performance_type as enum ('speech', 'toast', 'music', 'dance', 'poem', 'other');
+create type performance_status as enum ('pending', 'approved', 'rejected', 'scheduled');
+create type program_item_type as enum ('break', 'performance', 'info', 'ceremony');
 create type choice_type as enum ('binary', 'multichoice', 'text');
 create type swap_status as enum ('pending', 'accepted', 'cancelled');
 create type memory_type as enum ('funny', 'solemn', 'everyday', 'milestone');
@@ -102,30 +104,38 @@ create index idx_guest_choices_guest_id on guest_choices(guest_id);
 -- PROGRAM
 -- =============================================================================
 
--- Performances created by guests
+-- Performances created by guests (indslag); admin curates status + duration
 create table performances (
   id uuid primary key default gen_random_uuid(),
   guest_id uuid not null references guests(id) on delete cascade,
+  type performance_type not null default 'other',
   title text not null,
-  elements text[],                           -- ['tale', 'sang', 'underholdning']
+  description text,
   duration_minutes integer,
-  status performance_status default 'no',
+  sort_order integer default 0,
+  status performance_status not null default 'pending',
   created_at timestamptz default now()
 );
 
 create index idx_performances_guest_id on performances(guest_id);
 create index idx_performances_status on performances(status);
 
--- Program items
+-- Program items (1-level nesting via parent_id; cascade so delete-tree is atomic)
 create table program_items (
   id uuid primary key default gen_random_uuid(),
-  parent_id uuid references program_items(id) on delete set null,
+  parent_id uuid references program_items(id) on delete cascade,
   performance_id uuid references performances(id) on delete set null,
+  type program_item_type not null default 'info',
   title text not null,
-  scheduled_time text,                       -- "19:30" as text
+  start_time timestamptz,
+  duration_minutes integer,
+  notes text,
   sort_order integer default 0,
   created_at timestamptz default now()
 );
+
+create index idx_program_items_parent_id on program_items(parent_id);
+create index idx_program_items_sort_order on program_items(parent_id, sort_order);
 
 -- =============================================================================
 -- TASKS & SWAPS
@@ -134,19 +144,24 @@ create table program_items (
 -- Tasks
 create table tasks (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  scheduled_time timestamptz,
-  description jsonb,                         -- TipTap JSON
-  capacity integer default 1,
-  contact_host_for_swap boolean default false,
+  title text not null,
+  description text,
+  location text,
+  due_time timestamptz,
+  max_persons integer,
+  contact_host boolean not null default false,
+  sort_order integer default 0,
   created_at timestamptz default now()
 );
 
--- Task assignments
+create index idx_tasks_sort_order on tasks(sort_order);
+
+-- Task assignments (is_owner marks the original assignee vs moved/swapped-in guests)
 create table task_assignments (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references tasks(id) on delete cascade,
   guest_id uuid not null references guests(id) on delete cascade,
+  is_owner boolean not null default false,
   unique(task_id, guest_id)
 );
 

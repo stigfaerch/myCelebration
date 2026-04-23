@@ -1,12 +1,25 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { createAdminToken } from '@/lib/auth/adminToken'
 
-export default async function AdminLoginPage() {
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
+
   async function submitPassword(formData: FormData) {
     'use server'
     const password = formData.get('password') as string
+    const adminPassword = process.env.ADMIN_PASSWORD ?? ''
+
+    if (password !== adminPassword) {
+      redirect('/admin/login?error=1')
+    }
+
     const cookieStore = await cookies()
-    cookieStore.set('admin_password', password, {
+    cookieStore.set('admin_token', createAdminToken(), {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
@@ -21,6 +34,9 @@ export default async function AdminLoginPage() {
           <h1 className="text-2xl font-semibold">Admin</h1>
           <p className="text-muted-foreground text-sm">Indtast admin-kodeord</p>
         </div>
+        {error && (
+          <p className="text-center text-sm text-destructive">Forkert kodeord</p>
+        )}
         <form action={submitPassword} className="space-y-4">
           <input
             type="password"

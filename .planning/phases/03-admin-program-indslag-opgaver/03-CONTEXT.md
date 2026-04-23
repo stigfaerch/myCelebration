@@ -19,14 +19,15 @@ Admin kan bygge programmet, styre indslag og delegere opgaver til deltagere. Ink
 - Pattern: Server Component page → Client Component manager med optimistisk UI eller `revalidatePath`
 
 ## Database Tables Used
+> Schema references: `supabase/migrations/001_initial_schema.sql` (amended 2026-04-22 during Phase 3 review cycle 1 — see 03-REVIEW.md). `program_items.parent_id` uses `on delete cascade` so `deleteProgramItem` is a single DELETE.
 - `performances` — indslag (oprettet af gæster, admin redigerer kun varighed + status)
-  - Kolonner: id, guest_id, type (speech/toast/music/dance/poem/other), title, description, duration_minutes, sort_order, status (pending/approved/rejected/scheduled)
-- `program_items` — programpunkter
-  - Kolonner: id, title, start_time (timestamptz), duration_minutes, type (break/performance/info/ceremony), performance_id (nullable FK til performances), sort_order, parent_id (nullable FK til sig selv, for nesting), notes
+  - Kolonner: id, guest_id, type (performance_type enum: speech/toast/music/dance/poem/other), title, description (text), duration_minutes, sort_order, status (performance_status enum: pending/approved/rejected/scheduled), created_at
+- `program_items` — programpunkter (1-niveau nesting via parent_id ON DELETE CASCADE)
+  - Kolonner: id, parent_id (nullable self-FK, cascade delete), performance_id (nullable FK til performances, set null on delete), type (program_item_type enum: break/performance/info/ceremony), title, start_time (timestamptz), duration_minutes, notes, sort_order, created_at
 - `tasks` — opgaver
-  - Kolonner: id, title, description, location, due_time (timestamptz), max_persons, contact_host (boolean), sort_order
+  - Kolonner: id, title, description (text), location, due_time (timestamptz), max_persons, contact_host (boolean), sort_order, created_at
 - `task_assignments` — gæste-tildelinger til opgaver
-  - Kolonner: id, task_id, guest_id, is_owner
+  - Kolonner: id, task_id, guest_id, is_owner (boolean), unique(task_id, guest_id)
 
 ## Codebase Conventions
 - Admin-sider i `src/app/(admin)/admin/` (sidebar layout arves automatisk)

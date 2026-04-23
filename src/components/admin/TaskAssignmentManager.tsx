@@ -22,6 +22,7 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedGuestId, setSelectedGuestId] = useState<string>('')
+  const [localContactHost, setLocalContactHost] = useState(contactHost)
 
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id))
 
@@ -66,11 +67,14 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
     })
   }
 
-  function handleContactHostToggle(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleContactHostToggle() {
+    const newValue = !localContactHost
+    setLocalContactHost(newValue)
     startTransition(async () => {
       try {
-        await toggleContactHost(taskId, e.target.checked)
+        await toggleContactHost(taskId, newValue)
       } catch (err) {
+        setLocalContactHost(!newValue)
         setError(err instanceof Error ? err.message : 'Fejl ved opdatering')
       }
     })
@@ -83,7 +87,7 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
         <input
           id={`contact-host-${taskId}`}
           type="checkbox"
-          defaultChecked={contactHost}
+          checked={localContactHost}
           onChange={handleContactHostToggle}
           disabled={isPending}
           className="h-4 w-4"
@@ -91,7 +95,7 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
         <label htmlFor={`contact-host-${taskId}`} className="text-sm font-medium">
           Kontakt værten
         </label>
-        {contactHost && (
+        {localContactHost && (
           <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
             Bytte-flow blokeret
           </span>

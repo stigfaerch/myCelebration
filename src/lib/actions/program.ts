@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
+import { assertAdmin } from '@/lib/auth/assertAdmin'
 
 export type ProgramItemType = 'break' | 'performance' | 'info' | 'ceremony'
 
@@ -22,8 +23,20 @@ export async function getProgramItems() {
     .from('program_items')
     .select('*, performances(id, title, type, duration_minutes, guests(name))')
     .order('sort_order')
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to load program items')
   return data
+}
+
+async function validateNesting(parentId: string | null | undefined) {
+  if (!parentId) return
+  const { data: parent } = await supabaseServer
+    .from('program_items')
+    .select('parent_id')
+    .eq('id', parentId)
+    .single()
+  if (parent?.parent_id) {
+    throw new Error('Only one level of nesting is allowed')
+  }
 }
 
 export async function createProgramItem(formData: {
@@ -35,6 +48,9 @@ export async function createProgramItem(formData: {
   parent_id?: string | null
   notes?: string | null
 }) {
+  await assertAdmin()
+  await validateNesting(formData.parent_id)
+
   const parentId = formData.parent_id ?? null
   const { count } = await supabaseServer
     .from('program_items')
@@ -45,7 +61,7 @@ export async function createProgramItem(formData: {
   const { error } = await supabaseServer
     .from('program_items')
     .insert({ ...formData, sort_order })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to create program item')
   revalidatePath('/admin/program')
 }
 
@@ -58,23 +74,26 @@ export async function updateProgramItem(id: string, formData: {
   parent_id?: string | null
   notes?: string | null
 }) {
+  await assertAdmin()
+  await validateNesting(formData.parent_id)
+
   const { error } = await supabaseServer
     .from('program_items')
     .update(formData)
     .eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to update program item')
   revalidatePath('/admin/program')
 }
 
 export async function deleteProgramItem(id: string) {
-  // Delete children first (parent_id = id), then the item itself
-  await supabaseServer.from('program_items').delete().eq('parent_id', id)
+  await assertAdmin()
   const { error } = await supabaseServer.from('program_items').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Failed to delete program item')
   revalidatePath('/admin/program')
 }
 
 export async function moveProgramItemUp(id: string) {
+  await assertAdmin()
   const { data: current } = await supabaseServer
     .from('program_items')
     .select('sort_order, parent_id')
@@ -92,14 +111,16 @@ export async function moveProgramItemUp(id: string) {
     .maybeSingle()
   if (!above) return
 
-  await Promise.all([
-    supabaseServer.from('program_items').update({ sort_order: above.sort_order }).eq('id', id),
-    supabaseServer.from('program_items').update({ sort_order: current.sort_order }).eq('id', above.id),
-  ])
+  const { error } = await supabaseServer.rpc('swap_program_items', {
+    a_id: id,
+    b_id: above.id,
+  })
+  if (error) throw new Error('Failed to reorder items')
   revalidatePath('/admin/program')
 }
 
 export async function moveProgramItemDown(id: string) {
+  await assertAdmin()
   const { data: current } = await supabaseServer
     .from('program_items')
     .select('sort_order, parent_id')
@@ -117,9 +138,10 @@ export async function moveProgramItemDown(id: string) {
     .maybeSingle()
   if (!below) return
 
-  await Promise.all([
-    supabaseServer.from('program_items').update({ sort_order: below.sort_order }).eq('id', id),
-    supabaseServer.from('program_items').update({ sort_order: current.sort_order }).eq('id', below.id),
-  ])
+  const { error } = await supabaseServer.rpc('swap_program_items', {
+    a_id: id,
+    b_id: below.id,
+  })
+  if (error) throw new Error('Failed to reorder items')
   revalidatePath('/admin/program')
 }

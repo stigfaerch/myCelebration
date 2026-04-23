@@ -65,7 +65,7 @@ function PerformanceRow({ performance }: { performance: PerformanceWithGuest }) 
 
   function handleDurationCommit() {
     const parsed = durationValue === '' ? null : Number(durationValue)
-    if (durationValue !== '' && isNaN(parsed!)) return
+    if (durationValue !== '' && !Number.isFinite(parsed)) return
     startTransition(async () => {
       try {
         await updatePerformanceDuration(performance.id, parsed)
@@ -187,7 +187,7 @@ export function PerformanceList({ initialPerformances }: Props) {
       ) : (
         <ul className="space-y-3">
           {filtered.map((p) => (
-            <PerformanceRow key={p.id} performance={p} />
+            <PerformanceRow key={`${p.id}-${p.duration_minutes}`} performance={p} />
           ))}
         </ul>
       )}
