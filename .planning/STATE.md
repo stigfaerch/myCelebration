@@ -1,9 +1,9 @@
 # Project State
 
 ## Current Position
-- **Phase**: 3 of 7 (complete)
-- **Status**: Phase 3 review passed — 2 cycles, 3 BLOCKERs + 13 WARNINGs resolved, auth hardened, all fixes verified
-- **Last Activity**: Phase 3 review cycle 2 passed (2026-04-23)
+- **Phase**: 4 of 7 (planned)
+- **Status**: Phase 4 planned — 2 plans across 2 waves
+- **Last Activity**: Phase 4 planning (2026-04-23)
 
 ## Progress
 ```
@@ -20,6 +20,7 @@
 - HMAC-signed admin token (erstatter plaintext cookie) — `src/lib/auth/adminToken.ts`
 - `assertAdmin()` på alle muterende server actions
 - PL/pgSQL `swap_program_items` RPC for atomisk sort_order swap
+- Image handling conventions: original/medium/thumb storage, async processing, fallback chain
 
 ## Manual Actions Required (Supabase Storage)
 1. Opret bucket `invitations` i Supabase Dashboard → Storage (public: true)
@@ -32,4 +33,4 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:plan 4` to plan Phase 4: Admin — Medier, Sider & Galleri
+Run `/legion:build` to execute Phase 4: Admin — Medier, Sider & Galleri

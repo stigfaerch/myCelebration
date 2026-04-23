@@ -106,7 +106,7 @@
 | Phase 1: Foundation | 3 | 3 | Complete |
 | Phase 2: Admin — Deltagere & Information | 3 | 3 | Complete |
 | Phase 3: Admin — Program, Indslag & Opgaver | 2 | 2 | Complete (reviewed) |
-| Phase 4: Admin — Medier, Sider & Galleri | 2 | 0 | Not started |
+| Phase 4: Admin — Medier, Sider & Galleri | 2 | 0 | Planned |
 | Phase 5: Gæste-sider | 3 | 0 | Not started |
 | Phase 6: Screen & Realtime | 2 | 0 | Not started |
 | Phase 7: Polish & Launch | 2 | 0 | Not started |

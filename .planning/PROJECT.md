@@ -95,6 +95,31 @@ Giver vært fuld kontrol over festinfo, program, opgavedelegering og medier — 
 - **Styling**: Tailwind CSS + shadcn/ui (New York style, neutral base, CSS variables)
 - **Deployment**: Vercel
 
+## Conventions
+
+### Image Handling & Storage
+Detailed spec: `.planning/IMAGE_HANDLING_AND_STORAGE.md`
+
+**Storage structure** (Supabase Storage, S3-compatible):
+```
+/images/
+  /original/{image_id}.jpg
+  /medium/{image_id}.jpg     — ~1200px, quality 80
+  /thumb/{image_id}.jpg      — ~300px, quality 70
+```
+
+**Principles**:
+- Originals are source of truth — never deleted
+- Derivatives (medium, thumb) are generated asynchronously and are disposable
+- Processing is idempotent and retry-safe
+- Frontend uses fallback chain: `thumbnail_path ?? medium_path ?? original_path`
+
+**Upload flow**: store original → insert DB record → async worker generates derivatives → update DB
+
+**Schema pattern**: each image-bearing table tracks derivative paths (`medium_path`, `thumbnail_path`) alongside the original. Existing `photos.storage_url` and `memories.image_url` will be extended with derivative columns when Phase 4 is planned.
+
+**Constraints**: max ~10 MB, accepted formats: JPEG, PNG, HEIC (convert on ingest)
+
 ### Screen-routing
 Screen-browsere forbliver altid på `/{uuid}`. Default-siden og admin-overskrivninger ændrer hvad der *renderes* på `/{uuid}`, ikke URL'en. Der er ingen selvstændig `/galleri`-route — `/{uuid}/galleri`-indholdet vises direkte i screen-konteksten.
 
