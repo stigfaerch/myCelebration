@@ -1,4 +1,7 @@
 {
+  "_meta": {
+    "note": "English translations are skeleton/machine-generated for v1. Refine before shipping to EN users."
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",
@@ -13,7 +16,13 @@
     "close": "Close",
     "search": "Search",
     "filter": "Filter",
-    "noResults": "No results"
+    "noResults": "No results",
+    "new": "New",
+    "add": "Add",
+    "remove": "Remove",
+    "accept": "Accept",
+    "decline": "Decline",
+    "ok": "OK"
   },
   "auth": {
     "enterPassword": "Enter password",
@@ -40,7 +49,25 @@
     "photos": "Photos",
     "memories": "Memories",
     "gallery": "Gallery",
-    "settings": "Settings"
+    "settings": "Settings",
+    "nav": {
+      "dashboard": "Dashboard",
+      "guests": "Guests",
+      "information": "Information",
+      "program": "Program",
+      "performances": "Performances",
+      "tasks": "Tasks",
+      "pages": "Pages",
+      "photos": "Photos",
+      "memories": "Memories",
+      "gallery": "Gallery",
+      "settings": "Settings",
+      "adminLabel": "Admin"
+    },
+    "dashboardPage": {
+      "title": "Dashboard",
+      "subtitle": "Admin panel under construction."
+    }
   },
   "guest": {
     "home": "Home",
@@ -52,6 +79,42 @@
     "guests": "Guests",
     "photos": "Photos",
     "memories": "Memories",
-    "gallery": "Gallery"
+    "gallery": "Gallery",
+    "nav": {
+      "home": "Home",
+      "tasks": "Tasks",
+      "photos": "Photos",
+      "menu": "Menu",
+      "where": "Where",
+      "guests": "Guests",
+      "memories": "Memories",
+      "gallery": "Gallery",
+      "primaryNavAria": "Primary navigation",
+      "openMenuAria": "Open menu"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "tryAgainLater": "Please try again in a moment",
+    "tryAgain": "Try again",
+    "pageNotFound": "Page not found",
+    "goHome": "Go to the front page",
+    "adminError": "Admin error",
+    "adminNotFound": "Admin page not found",
+    "backToAdmin": "Back to admin",
+    "guestPageNotFound": "This page does not exist",
+    "backToStart": "Back to start",
+    "cameraFailed": "The camera could not be started",
+    "backToPhotos": "Back to photos",
+    "criticalError": "Critical error",
+    "criticalErrorHint": "An unexpected error occurred. Please reload the page."
+  },
+  "screen": {
+    "memory": {
+      "funny": "Funny",
+      "solemn": "Solemn",
+      "everyday": "Everyday",
+      "milestone": "Milestone"
+    }
   }
 }

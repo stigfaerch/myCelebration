@@ -13,7 +13,13 @@
     "close": "Luk",
     "search": "Søg",
     "filter": "Filtrer",
-    "noResults": "Ingen resultater"
+    "noResults": "Ingen resultater",
+    "new": "Ny",
+    "add": "Tilføj",
+    "remove": "Fjern",
+    "accept": "Acceptér",
+    "decline": "Afvis",
+    "ok": "OK"
   },
   "auth": {
     "enterPassword": "Indtast kodeord",
@@ -40,7 +46,25 @@
     "photos": "Billeder",
     "memories": "Minder",
     "gallery": "Galleri",
-    "settings": "Indstillinger"
+    "settings": "Indstillinger",
+    "nav": {
+      "dashboard": "Dashboard",
+      "guests": "Deltagere",
+      "information": "Information",
+      "program": "Program",
+      "performances": "Indslag",
+      "tasks": "Opgaver",
+      "pages": "Sider",
+      "photos": "Billeder",
+      "memories": "Minder",
+      "gallery": "Galleri",
+      "settings": "Indstillinger",
+      "adminLabel": "Admin"
+    },
+    "dashboardPage": {
+      "title": "Dashboard",
+      "subtitle": "Admin-panel under opbygning."
+    }
   },
   "guest": {
     "home": "Hjem",
@@ -52,6 +76,42 @@
     "guests": "Gæster",
     "photos": "Billeder",
     "memories": "Minder",
-    "gallery": "Galleri"
+    "gallery": "Galleri",
+    "nav": {
+      "home": "Hjem",
+      "tasks": "Opgaver",
+      "photos": "Billeder",
+      "menu": "Menu",
+      "where": "Hvor",
+      "guests": "Deltagere",
+      "memories": "Minder",
+      "gallery": "Galleri",
+      "primaryNavAria": "Primær navigation",
+      "openMenuAria": "Åbn menu"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Noget gik galt",
+    "tryAgainLater": "Prøv igen om et øjeblik",
+    "tryAgain": "Prøv igen",
+    "pageNotFound": "Siden findes ikke",
+    "goHome": "Gå til forsiden",
+    "adminError": "Admin-fejl",
+    "adminNotFound": "Admin-side ikke fundet",
+    "backToAdmin": "Tilbage til admin",
+    "guestPageNotFound": "Denne side findes ikke",
+    "backToStart": "Tilbage til start",
+    "cameraFailed": "Kameraet kan ikke startes",
+    "backToPhotos": "Tilbage til billeder",
+    "criticalError": "Kritisk fejl",
+    "criticalErrorHint": "En uventet fejl opstod. Genindlæs siden."
+  },
+  "screen": {
+    "memory": {
+      "funny": "Sjov",
+      "solemn": "Højtidelig",
+      "everyday": "Hverdag",
+      "milestone": "Milepæl"
+    }
   }
 }

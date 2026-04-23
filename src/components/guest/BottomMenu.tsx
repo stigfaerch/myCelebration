@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   Home,
   CheckSquare,
@@ -35,19 +36,20 @@ interface NavItem {
 
 export function BottomMenu({ uuid }: BottomMenuProps) {
   const pathname = usePathname()
+  const t = useTranslations('guest.nav')
   const [sheetOpen, setSheetOpen] = React.useState(false)
 
   const primary: NavItem[] = [
-    { href: `/${uuid}`, label: 'Hjem', icon: Home },
-    { href: `/${uuid}/opgaver`, label: 'Opgaver', icon: CheckSquare },
-    { href: `/${uuid}/billeder`, label: 'Billeder', icon: ImageIcon },
+    { href: `/${uuid}`, label: t('home'), icon: Home },
+    { href: `/${uuid}/opgaver`, label: t('tasks'), icon: CheckSquare },
+    { href: `/${uuid}/billeder`, label: t('photos'), icon: ImageIcon },
   ]
 
   const secondary: NavItem[] = [
-    { href: `/${uuid}/hvor`, label: 'Hvor', icon: MapPin },
-    { href: `/${uuid}/deltagere`, label: 'Deltagere', icon: Users },
-    { href: `/${uuid}/minder`, label: 'Minder', icon: BookHeart },
-    { href: `/${uuid}/galleri`, label: 'Galleri', icon: LayoutGrid },
+    { href: `/${uuid}/hvor`, label: t('where'), icon: MapPin },
+    { href: `/${uuid}/deltagere`, label: t('guests'), icon: Users },
+    { href: `/${uuid}/minder`, label: t('memories'), icon: BookHeart },
+    { href: `/${uuid}/galleri`, label: t('gallery'), icon: LayoutGrid },
   ]
 
   const isActive = (href: string) => pathname === href
@@ -55,7 +57,7 @@ export function BottomMenu({ uuid }: BottomMenuProps) {
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] border-t bg-background"
-      aria-label="Primær navigation"
+      aria-label={t('primaryNavAria')}
     >
       <div className="flex items-center justify-around py-2">
         {primary.map((item) => {
@@ -82,17 +84,17 @@ export function BottomMenu({ uuid }: BottomMenuProps) {
             render={
               <button
                 type="button"
-                aria-label="Åbn menu"
+                aria-label={t('openMenuAria')}
                 className="flex flex-col items-center gap-0.5 p-2 text-xs text-muted-foreground"
               />
             }
           >
             <MenuIcon className="size-5" />
-            <span>Menu</span>
+            <span>{t('menu')}</span>
           </SheetTrigger>
           <SheetContent side="bottom" className="p-0">
             <SheetHeader>
-              <SheetTitle>Menu</SheetTitle>
+              <SheetTitle>{t('menu')}</SheetTitle>
             </SheetHeader>
             <ul className="px-2 pb-4">
               {secondary.map((item) => {
