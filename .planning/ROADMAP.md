@@ -6,7 +6,7 @@
 - [ ] Phase 2: Admin — Deltagere & Information
 - [ ] Phase 3: Admin — Program, Indslag & Opgaver
 - [x] Phase 4: Admin — Medier, Sider & Galleri
-- [ ] Phase 5: Gæste-sider
+- [x] Phase 5: Gæste-sider
 - [ ] Phase 6: Screen & Realtime
 - [ ] Phase 7: Polish & Launch
 
@@ -107,6 +107,6 @@
 | Phase 2: Admin — Deltagere & Information | 3 | 3 | Complete |
 | Phase 3: Admin — Program, Indslag & Opgaver | 2 | 2 | Complete (reviewed) |
 | Phase 4: Admin — Medier, Sider & Galleri | 2 | 2 | Complete (reviewed) |
-| Phase 5: Gæste-sider | 3 | 3 | Executed (pending review) |
+| Phase 5: Gæste-sider | 3 | 3 | Complete (reviewed) |
 | Phase 6: Screen & Realtime | 2 | 0 | Not started |
 | Phase 7: Polish & Launch | 2 | 0 | Not started |
