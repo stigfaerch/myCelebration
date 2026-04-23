@@ -13,15 +13,17 @@ interface Props {
   taskTitleMap: Record<string, string>
 }
 
+const REFRESH_DEBOUNCE_MS = 500
+
 export function IncomingSwapList({ initialIncoming, taskTitleMap }: Props) {
   const router = useRouter()
+  const instanceId = React.useId()
 
-  // React 19 derive-during-render resync: if props change, adopt the new
-  // server-sent list but retain the "accepted locally" ids so we don't
-  // briefly re-show a row we just optimistically removed.
+  // Server-sent incoming list is the source of truth. Local state holds only
+  // the post-accept optimistic removal; router.refresh() lands fresh data and
+  // the derive-during-render assignment below adopts it.
   const [incoming, setIncoming] = React.useState(initialIncoming)
   const [prevIncoming, setPrevIncoming] = React.useState(initialIncoming)
-  const [accepted, setAccepted] = React.useState<Set<string>>(() => new Set())
   const [selected, setSelected] = React.useState<Record<string, string>>({})
   const [errorBySwap, setErrorBySwap] = React.useState<Record<string, string>>({})
   const [pendingSwap, setPendingSwap] = React.useState<string | null>(null)
@@ -29,16 +31,30 @@ export function IncomingSwapList({ initialIncoming, taskTitleMap }: Props) {
 
   if (prevIncoming !== initialIncoming) {
     setPrevIncoming(initialIncoming)
-    setIncoming(initialIncoming.filter((s) => !accepted.has(s.id)))
+    setIncoming(initialIncoming)
   }
 
   // Subscribe to swap_requests changes. Realtime does not support
-  // array-overlap filters, so we broadcast-then-refresh and let the
-  // server re-filter via getIncomingSwapRequests().
+  // array-overlap filters, so broadcast-then-refresh and let the server
+  // re-filter via getIncomingSwapRequests(). Debounce router.refresh() to
+  // absorb bursts and prevent per-event re-render storms.
   React.useEffect(() => {
     const client = getSupabaseBrowserClient()
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null
+        router.refresh()
+      }, REFRESH_DEBOUNCE_MS)
+    }
+
+    // Unique topic per mount — avoids singleton-channel reuse pitfall
+    // where React Strict Mode's double-effect tears down a still-live channel.
+    const topic = `swap_requests:incoming:${instanceId}`
     const channel = client
-      .channel('swap_requests:incoming')
+      .channel(topic)
       .on(
         'postgres_changes',
         {
@@ -47,15 +63,16 @@ export function IncomingSwapList({ initialIncoming, taskTitleMap }: Props) {
           table: 'swap_requests',
         },
         () => {
-          router.refresh()
+          scheduleRefresh()
         }
       )
       .subscribe()
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
       void client.removeChannel(channel)
     }
-  }, [router])
+  }, [router, instanceId])
 
   function handleAccept(swap: IncomingSwapRequest) {
     const accepterTaskId =
@@ -77,12 +94,7 @@ export function IncomingSwapList({ initialIncoming, taskTitleMap }: Props) {
     startTransition(async () => {
       try {
         await acceptSwapRequest(swap.id, accepterTaskId)
-        // Optimistic removal + mark accepted so the next refresh doesn't flash it back
-        setAccepted((prev) => {
-          const next = new Set(prev)
-          next.add(swap.id)
-          return next
-        })
+        // Optimistic removal — router.refresh() will land SSR truth shortly.
         setIncoming((prev) => prev.filter((s) => s.id !== swap.id))
         setPendingSwap(null)
         router.refresh()

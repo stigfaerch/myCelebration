@@ -17,11 +17,17 @@ interface Props {
  */
 export function ScreenRouter({ guestId, children }: Props) {
   const router = useRouter()
+  const instanceId = React.useId()
 
   React.useEffect(() => {
     const client = getSupabaseBrowserClient()
+    // Unique topic per mount: Supabase's realtime-js returns an existing
+    // channel when the same topic is re-used on the same client, which under
+    // React 19 Strict Mode's intentional double-effect (and any remount) makes
+    // the first cleanup tear down the still-mounted second subscription.
+    const topic = `screen_state:${guestId}:${instanceId}`
     const channel = client
-      .channel(`screen_state:${guestId}`)
+      .channel(topic)
       .on(
         'postgres_changes',
         {
@@ -39,7 +45,7 @@ export function ScreenRouter({ guestId, children }: Props) {
     return () => {
       void client.removeChannel(channel)
     }
-  }, [guestId, router])
+  }, [guestId, router, instanceId])
 
   return <>{children}</>
 }

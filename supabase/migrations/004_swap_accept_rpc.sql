@@ -1,14 +1,23 @@
 -- accept_swap_request — atomic acceptance of a task swap request
 --
+-- Security model:
+--   This function is invoked EXCLUSIVELY from the `acceptSwapRequest` server
+--   action via the service-role client. It is NOT callable by anon or
+--   authenticated roles. Allowing anon to execute would let any internet
+--   actor with the public NEXT_PUBLIC_SUPABASE_ANON_KEY forge swaps between
+--   any two guests by supplying arbitrary p_accepter_guest_id values.
+--
 -- Semantics:
 --   1. Lock the swap_requests row FOR UPDATE (serializes concurrent callers).
 --   2. Validate request exists, is pending, target task is in desired_task_ids,
 --      accepter is assigned to that target task, and is not self-accepting.
 --   3. Lock requester + accepter task_assignments rows FOR UPDATE.
---   4. Swap guest_ids between the two assignments. Preserve is_owner flags —
+--   4. Reject if accepter already holds an assignment on the requester's task
+--      (would violate unique(task_id, guest_id) on the subsequent UPDATE).
+--   5. Swap guest_ids between the two assignments. Preserve is_owner flags —
 --      they describe the ORIGINAL assignee identity, not the current holder
 --      (per Phase 3 design note).
---   5. Mark swap_requests.status = 'accepted'.
+--   6. Mark swap_requests.status = 'accepted'.
 --
 -- Failure modes (raised as exceptions, caught by caller and mapped to
 -- user-facing Danish strings):
@@ -17,6 +26,8 @@
 --   invalid_target    — accepter_task_id is not in desired_task_ids
 --   not_assigned      — accepter_guest_id is not assigned to accepter_task_id
 --   self_accept       — accepter_guest_id equals requester's current guest_id
+--   accepter_has_task — accepter already holds the task the requester would
+--                       receive; swap would be a no-op and violate uniqueness
 
 create or replace function accept_swap_request(
   p_swap_id uuid,
@@ -33,6 +44,7 @@ declare
   v_desired_task_ids uuid[];
   v_status swap_status;
   v_requester_guest_id uuid;
+  v_requester_task_id uuid;
   v_accepter_assignment_id uuid;
 begin
   -- Step 1: lock swap row (serializes concurrent acceptance attempts)
@@ -56,9 +68,9 @@ begin
     raise exception 'invalid_target';
   end if;
 
-  -- Step 3: lock requester assignment row and capture current guest
-  select guest_id
-    into v_requester_guest_id
+  -- Step 3: lock requester assignment row and capture current guest + task
+  select guest_id, task_id
+    into v_requester_guest_id, v_requester_task_id
     from task_assignments
     where id = v_requester_assignment_id
     for update;
@@ -84,12 +96,24 @@ begin
     raise exception 'not_assigned';
   end if;
 
-  -- Step 6: swap guest_ids between the two assignments.
+  -- Step 6: reject if accepter already holds an assignment on the requester's
+  -- task — the subsequent UPDATE would violate unique(task_id, guest_id), and
+  -- semantically the accepter wouldn't gain anything from the swap.
+  if exists (
+    select 1
+      from task_assignments
+      where task_id = v_requester_task_id
+        and guest_id = p_accepter_guest_id
+        and id <> v_accepter_assignment_id
+  ) then
+    raise exception 'accepter_has_task';
+  end if;
+
+  -- Step 7: swap guest_ids between the two assignments.
   -- is_owner flags stay untouched — they mark the original assignee.
-  -- Use a temporary sentinel guest_id swap via a two-step update to avoid
-  -- violating the unique(task_id, guest_id) constraint mid-transaction.
-  -- Strategy: set requester's guest_id to accepter's, then accepter's to
-  -- the captured requester guest.
+  -- Order matters: update the requester's row first (task X: requester→accepter),
+  -- then the accepter's row (task Y: accepter→requester). The pre-check in
+  -- Step 6 guarantees no unique-constraint collision across this sequence.
   update task_assignments
      set guest_id = p_accepter_guest_id
    where id = v_requester_assignment_id;
@@ -98,12 +122,19 @@ begin
      set guest_id = v_requester_guest_id
    where id = v_accepter_assignment_id;
 
-  -- Step 7: mark swap accepted
+  -- Step 8: mark swap accepted
   update swap_requests
      set status = 'accepted'
    where id = p_swap_id;
 end;
 $$;
 
-grant execute on function accept_swap_request(uuid, uuid, uuid)
-  to anon, authenticated, service_role;
+-- Access control: revoke the default public grant and restrict to service_role
+-- only. The server action at src/lib/actions/guest/tasks.ts is the sole caller
+-- and uses the service-role client. Anon/authenticated must NOT be able to
+-- invoke this function directly (would allow forging p_accepter_guest_id via
+-- the public anon key).
+revoke execute on function accept_swap_request(uuid, uuid, uuid) from public;
+revoke execute on function accept_swap_request(uuid, uuid, uuid) from anon;
+revoke execute on function accept_swap_request(uuid, uuid, uuid) from authenticated;
+grant  execute on function accept_swap_request(uuid, uuid, uuid) to service_role;

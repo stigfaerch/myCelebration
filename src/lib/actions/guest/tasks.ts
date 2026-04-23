@@ -380,6 +380,9 @@ export async function acceptSwapRequest(
     if (msg.includes('self_accept')) {
       throw new Error('Du kan ikke acceptere din egen forespørgsel')
     }
+    if (msg.includes('accepter_has_task')) {
+      throw new Error('Du har allerede den opgave, som forespørgeren vil bytte væk')
+    }
     throw new Error('Kunne ikke acceptere bytte')
   }
 
