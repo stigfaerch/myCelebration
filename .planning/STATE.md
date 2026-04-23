@@ -1,9 +1,9 @@
 # Project State
 
 ## Current Position
-- **Phase**: 5 of 7 (complete)
-- **Status**: Phase 5 complete — review passed (2 cycles)
-- **Last Activity**: Phase 5 review passed (2026-04-23)
+- **Phase**: 6 of 7 (planned)
+- **Status**: Phase 6 planned — 2 plans across 2 waves
+- **Last Activity**: Phase 6 planning (2026-04-23)
 
 ## Progress
 ```
@@ -33,8 +33,9 @@
 ## Manual Actions Required (First-time setup — still pending)
 1. Opret Supabase-projekt på supabase.com
 2. Udfyld `.env.local` med rigtige værdier (URL, anon key, service role key, passwords)
-3. Kør migreringer: `001_initial_schema.sql`, `002_rls.sql` og `003_program_items_swap_rpc.sql` i Supabase Dashboard SQL Editor
-4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
+3. Kør migreringer: `001_initial_schema.sql`, `002_rls.sql`, `003_program_items_swap_rpc.sql`, `004_swap_accept_rpc.sql`, `005_realtime_rls.sql` i Supabase Dashboard SQL Editor
+4. Enable Supabase Realtime publication for `swap_requests` + `task_assignments` (Database → Replication) hvis ikke auto-enabled
+5. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:plan 6` to plan Phase 6: Screen & Realtime
+Run `/legion:build` to execute Phase 6: Screen & Realtime
