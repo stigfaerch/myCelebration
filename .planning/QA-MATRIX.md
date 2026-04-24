@@ -57,7 +57,7 @@ checkbox column. Every row must pass before go-live.
 
 | # | Area | How to test | Expected | Pass |
 |---|------|-------------|----------|------|
-| P1 | i18n — locale flip | In devtools, set cookie `locale=en; path=/` → reload any page | Nav labels, error boundaries, dashboard headings flip to English placeholder keys (quality may be literal; correctness is the check) | [ ] |
+| P1 | i18n — locale flip | In devtools, set cookie `locale=en; path=/` → hard-reload (Ctrl+Shift+R) any page | Nav labels, error boundaries, dashboard headings flip to English placeholder keys (quality may be literal; correctness is the check) | [ ] |
 | P2 | i18n — Danish default | With no `locale` cookie, all UI renders in Danish | No English leaks; all nav + error + dashboard copy is Danish | [ ] |
 | P3 | Error boundary — root | Visit `/__definitely__/nonexistent/path` | Root `not-found.tsx` renders Danish "Siden findes ikke" + Gå til forsiden link | [ ] |
 | P4 | Error boundary — admin | While logged in, visit `/admin/nonexistent` | Admin `not-found.tsx` renders "Admin-side ikke fundet" + link back to `/admin` | [ ] |

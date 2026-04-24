@@ -46,7 +46,9 @@ Supabase Dashboard → **Storage** → **New bucket** (three times):
 - [ ] `images` — public: **true** (guest-uploaded photos + memories)
 
 **Post-launch hardening note:** `images` being public means any uploaded photo
-URL is publicly guessable. This is an accepted v1 trade-off for a private
+URL is viewable by anyone who obtains the URL (note: Supabase storage keys are
+cryptographically random, so URLs are unguessable but once forwarded they're
+viewable indefinitely). This is an accepted v1 trade-off for a private
 family-event URL. See section 9 for the hardening follow-up.
 
 ## 4. Environment Variables
@@ -107,6 +109,23 @@ Run `.planning/QA-MATRIX.md` end-to-end. Critical spot checks:
 - [ ] Camera: on a mobile device, `/[uuid]/billeder/kamera` → take a photo → verify it appears in `/[uuid]/billeder` grid
 - [ ] Complete every `[ ]` checkbox in `.planning/QA-MATRIX.md`; resolve any failures before promoting the event URL to guests
 
+### 7a. Optional: Automated smoke suite against a test Supabase
+
+A deterministic Playwright harness is installed (`npm run test:smoke`). Un-gated
+specs (2 tests) cover app-boot + admin login rejection and run without any env
+vars. DB-touching specs (7 tests) stay skipped unless you provision a test guest
+and set the env vars below:
+
+```bash
+export TEST_GUEST_UUID="<uuid of a person-type guest in your test project>"
+export TEST_GUEST_PASSWORD="<value of GUEST_PASSWORD>"
+export TEST_SCREEN_UUID="<uuid of a screen-type guest in your test project>"
+npm run test:smoke
+```
+
+Expected output: `9 passed` (or `2 passed, 7 skipped` without env vars). Any
+FAIL is a launch blocker. Matches QA-MATRIX rows P9/P10.
+
 ## 8. Rollback Procedure
 
 If the production deploy has a showstopper and cannot be hot-fixed:
@@ -117,7 +136,19 @@ If the production deploy has a showstopper and cannot be hot-fixed:
 - [ ] If the failure is in the application code, Vercel rollback is sufficient
 - [ ] If the failure is due to a bad DB migration (004 or 005), rollback requires **manual SQL**:
   - No automated down-migrations exist for v1
-  - Restore from the backup taken in section 2
+  - Restore from the backup taken in section 2 via **Supabase Dashboard → Database → Backups → select snapshot → Restore** (note: restoring a backup wipes any admin-created data entered in section 6 — redo those steps after restore)
+  - Surgical rollback (if backup missing or partial): run the appropriate down-SQL:
+    ```sql
+    -- Rollback migration 005 (realtime RLS + publication):
+    drop policy if exists "swap_requests_realtime_select" on swap_requests;
+    drop policy if exists "task_assignments_realtime_select" on task_assignments;
+    alter publication supabase_realtime drop table swap_requests;
+    alter publication supabase_realtime drop table task_assignments;
+    alter publication supabase_realtime drop table screen_state;
+
+    -- Rollback migration 004 (accept_swap_request RPC):
+    drop function if exists accept_swap_request(uuid, uuid, uuid);
+    ```
   - Re-run migrations 001–003 if needed to return to a known-good state
 - [ ] **Communicate the rollback window to guests:**
   - If you have an SMS template, use `/admin/indstillinger` to broadcast an "app is temporarily unavailable" message
