@@ -57,6 +57,10 @@ Giver vært fuld kontrol over festinfo, program, opgavedelegering og medier — 
 **Screen-funktionalitet**
 - R23: Screen-deltager type med konfigurérbar default side + realtime admin-overskrivning der forbliver aktiv indtil admin aktivt vælger andet
 
+**Static-item Visibility & Screen-render**
+- R24: Synlighedskontrol (aktiv-flag + visible_from/visible_until) for alle statiske menu-elementer (Galleri, Deltagere, Hvor, Opgaver, Program) — parallel funktionalitet med dynamiske sider
+- R25: Skærm-aktivering for statiske menu-elementer (Galleri, Deltagere, Hvor, Opgaver, Program) med dedikerede screen-renderere; cycleren skifter polymorft mellem dynamiske sider og statiske views
+
 ### Out of Scope
 - Gæstebidrag / digital gæstebog (v2)
 - Realtime reaktioner (v2)

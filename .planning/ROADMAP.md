@@ -9,6 +9,7 @@
 - [x] Phase 5: Gæste-sider
 - [x] Phase 6: Screen & Realtime
 - [x] Phase 7: Polish & Launch
+- [ ] Phase 8: Static-item Visibility & Screen Rendering
 
 ## Phase Details
 
@@ -99,6 +100,20 @@
 - Deployment til produktion verificeret
 **Plans**: 2
 
+### Phase 8: Static-item Visibility & Screen Rendering
+**Goal**: Udvid synlighedskontroller (is_active + tidsvindue) og skærm-aktivering til statiske menu-elementer (Galleri, Deltagere, Hvor, Opgaver, Program), så de er på linje med dynamiske sider.
+**Requirements**: R24, R25
+**Recommended Agents**: Backend Architect, Senior Developer, Frontend Developer
+**Success Criteria**:
+- Synlighedskontroller (is_active + visible_from/visible_until) fungerer for alle statiske items i `/admin/sider`
+- Statiske items respekterer synlighed i gæstens bundmenu OG på deres egne ruter (notFound() hvis uden for vindue / inaktiv)
+- Skærm-aktivering fungerer for Galleri, Deltagere, Hvor, Opgaver og Program i `/admin/sider` (Kamera og Billeder er bevidst ude af scope)
+- Polymorf screen-render: cycleren viser enten dynamisk side (TipTap) ELLER statisk view pr. cycle-step
+- Screen-renderere eksisterer for Deltagere, Hvor, Opgaver, Program (Galleri genbruger eksisterende `ScreenDefault`)
+- Skema-migration for static-item synlighed + polymorfe skærm-tildelinger (planner vælger mellem `screen_page_assignments` polymorf udvidelse vs. separat `screen_static_assignments` tabel)
+- Eksisterende dynamic-page features (Phase 6 + post-launch screen-cycling-serien) fortsætter uændret
+**Plans**: 5
+
 ## Progress
 
 | Phase | Plans | Completed | Status |
@@ -110,3 +125,4 @@
 | Phase 5: Gæste-sider | 3 | 3 | Complete (reviewed) |
 | Phase 6: Screen & Realtime | 2 | 2 | Complete (reviewed) |
 | Phase 7: Polish & Launch | 2 | 2 | Complete (reviewed) |
+| Phase 8: Static-item Visibility & Screen Rendering | 5 | 0 | Planned |

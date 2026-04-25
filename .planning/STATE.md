@@ -1,13 +1,13 @@
 # Project State
 
 ## Current Position
-- **Phase**: 7 of 7 (complete — PROJECT FINISHED)
-- **Status**: All phases complete — project review finished. Ready for deployment.
-- **Last Activity**: Phase 7 review passed (2026-04-24)
+- **Phase**: 8 of 8 (planned — ready to build)
+- **Status**: Phase 8 (Static-item Visibility & Screen Rendering) decomposed into 5 plans across 2 waves. Run `/legion:build 8` to execute.
+- **Last Activity**: Phase 8 plans generated (2026-04-25)
 
 ## Progress
 ```
-[##################] 100% — 17/17 plans complete
+[################  ] 81% — 17/22 plans complete (Phase 8: 0/5)
 ```
 
 ## Recent Decisions
@@ -37,4 +37,12 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-All phases complete. Follow `.planning/LAUNCH.md` top-to-bottom for deployment. Use `.planning/QA-MATRIX.md` as the release gate before promoting to guests.
+Run `/legion:build 8` to execute Phase 8: Static-item Visibility & Screen Rendering.
+
+Phase 8 plans live in `.planning/phases/08-static-item-visibility-screen-rendering/`:
+- **Wave 1** (parallel): 08-01 (Backend Architect — visibility schema/actions), 08-02 (Backend Architect — polymorphic screen-assignments)
+- **Wave 2** (parallel, depends on Wave 1): 08-03 (Frontend Developer — admin UI), 08-04 (Senior Developer — guest filter + route guards), 08-05 (Senior Developer — screen renderers + cycler refactor)
+
+After build completes, two manual user actions are required (each plan flags them in its SUMMARY): apply migration 010 (08-01) and migration 011 (08-02) in Supabase Dashboard SQL Editor before testing.
+
+Phases 1–7 remain in production-ready state — see `.planning/LAUNCH.md` and `.planning/QA-MATRIX.md` for the existing launch flow.
