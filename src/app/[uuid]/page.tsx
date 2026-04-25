@@ -19,7 +19,7 @@ import { ScreenMemory } from '@/components/screen/ScreenMemory'
 import { ScreenPageCycle } from '@/components/screen/ScreenPageCycle'
 import {
   hasAnyScreenAssignments,
-  getVisibleScreenAssignments,
+  getHydratedMixedScreenItems,
   getScreenCycleSettings,
 } from '@/lib/actions/screenAssignments'
 
@@ -43,19 +43,21 @@ export default async function ForsidePage({ params }: Props) {
     // window). This is intentional: assigning pages is an explicit
     // operator signal that should not silently fall through to gallery.
     if (await hasAnyScreenAssignments(guest.id)) {
-      const [visibleAssignments, cycleSettings] = await Promise.all([
-        getVisibleScreenAssignments(guest.id),
+      // Polymorphic cycle list (Plan 08-05): fetch visible assignments AND
+      // hydrate the per-static-key data payload server-side in one call so
+      // the client cycler stays a thin presentational wrapper. Static-item
+      // data (gallery items, events, tasks, program rows, guest list) is
+      // fetched in parallel inside `getHydratedMixedScreenItems`. Cycle
+      // settings come from the guests row.
+      const [initialItems, cycleSettings] = await Promise.all([
+        getHydratedMixedScreenItems(guest.id),
         getScreenCycleSettings(guest.id),
       ])
       return (
         <ScreenRouter guestId={guest.id}>
           <ScreenPageCycle
             screenGuestId={guest.id}
-            initialPages={visibleAssignments.map((a) => ({
-              id: a.page.id,
-              title: a.page.title,
-              content: a.page.content,
-            }))}
+            initialItems={initialItems}
             initialCycleSeconds={cycleSettings.cycle_seconds}
             initialTransition={cycleSettings.transition}
           />

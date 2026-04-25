@@ -683,6 +683,130 @@ export async function getVisibleScreenAssignmentsMixed(
 }
 
 /**
+ * Discriminated payload used by the polymorphic screen cycler (Plan 08-05).
+ * Each visible screen-assignment row is paired with the data the renderer
+ * needs to draw a slide:
+ *   - `kind: 'page'` carries the same `{ id, title, content }` triple the
+ *     pre-08-05 ScreenPageCycle consumed.
+ *   - `kind: 'static'` carries `staticKey` and an opaque `data` payload.
+ *     The cycler narrows `data` per `staticKey` at render time.
+ *
+ * This type is intentionally serialisable so it can be passed from a server
+ * component to the client cycler as a prop, AND returned from a server
+ * action as the realtime-refetch result.
+ */
+export type MixedScreenItem =
+  | {
+      kind: 'page'
+      id: string
+      title: string
+      content: Record<string, unknown> | null
+    }
+  | {
+      kind: 'static'
+      id: string
+      staticKey: string
+      data: unknown
+    }
+
+/**
+ * Hydrate the runtime-data payload for a single static-key cycle slot.
+ * Centralised here so both the server-side initial render and the client
+ * realtime refetch can share one fetch path per static kind.
+ *
+ * Returns `null` if the static key is unknown or its required data source
+ * is empty in a way that should hide the slide (the cycler treats `null` as
+ * "skip this slot"). Callers MUST filter null entries out before passing
+ * the list to ScreenPageCycle.
+ *
+ * No admin assertion — this is read-only and runs on the public screen
+ * render path. The data shapes mirror the existing `/[uuid]/<route>` pages
+ * so no PII is exposed beyond what guests already see.
+ */
+async function hydrateStaticItemData(staticKey: string): Promise<unknown> {
+  if (staticKey === 'galleri') {
+    const { getGalleryItems } = await import('@/lib/actions/guest/gallery')
+    return await getGalleryItems()
+  }
+  if (staticKey === 'deltagere') {
+    const { data } = await supabaseServer
+      .from('guests')
+      .select('id, name, type, relation')
+      .neq('type', 'screen')
+      .order('name')
+    return { guests: data ?? [] }
+  }
+  if (staticKey === 'hvor') {
+    const { data } = await supabaseServer
+      .from('events')
+      .select('*, event_locations(id, title, description)')
+      .order('sort_order')
+    return { events: data ?? [] }
+  }
+  if (staticKey === 'tasks') {
+    const { data } = await supabaseServer
+      .from('tasks')
+      .select(
+        '*, task_assignments(id, guest_id, is_owner, guests(id, name, type))'
+      )
+      .order('sort_order')
+    return { tasks: data ?? [] }
+  }
+  if (staticKey === 'program') {
+    const { data } = await supabaseServer
+      .from('program_items')
+      .select(
+        '*, performances(id, title, type, duration_minutes, guests(name))'
+      )
+      .order('sort_order')
+    return { items: data ?? [] }
+  }
+  // Unknown / unsupported static key — defensive null so the cycler can
+  // skip this slot rather than crashing.
+  return null
+}
+
+/**
+ * Server action that returns the FULL hydrated cycle list for a screen:
+ * visible mixed assignments, each with its renderer payload baked in.
+ *
+ * Used by the polymorphic ScreenPageCycle on realtime refetch — replaces
+ * the old `getVisibleScreenAssignments` call so that BOTH page and static
+ * slots are refreshed in a single round trip.
+ *
+ * Public (matches the `getVisibleScreenAssignments*` posture). Visibility
+ * is filtered server-side via `getVisibleScreenAssignmentsMixed`. Static
+ * keys whose hydration returns `null` are dropped (defensive).
+ */
+export async function getHydratedMixedScreenItems(
+  screenGuestId: string
+): Promise<MixedScreenItem[]> {
+  const visible = await getVisibleScreenAssignmentsMixed(screenGuestId)
+  // Hydrate static-item data in parallel — these are independent fetches.
+  const hydrated = await Promise.all(
+    visible.map(async (a): Promise<MixedScreenItem | null> => {
+      if (a.kind === 'page') {
+        return {
+          kind: 'page',
+          id: a.page.id,
+          title: a.page.title,
+          content: a.page.content,
+        }
+      }
+      const data = await hydrateStaticItemData(a.static_key)
+      if (data === null) return null
+      return {
+        kind: 'static',
+        id: a.id,
+        staticKey: a.static_key,
+        data,
+      }
+    })
+  )
+  return hydrated.filter((x): x is MixedScreenItem => x !== null)
+}
+
+/**
  * Admin helper, mirrors `getAssignmentsMapByPage` for the static-row
  * universe. Returns `{ static_key: [screen_guest_id, ...] }` so the
  * `/admin/sider` page can render which screens have a given static item
