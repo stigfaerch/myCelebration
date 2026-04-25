@@ -80,16 +80,6 @@ export async function getMyAssignments(): Promise<MyAssignment[]> {
   }))
 }
 
-export async function getAssignmentCount(): Promise<number> {
-  const guest = await resolveGuest()
-  const { count, error } = await supabaseServer
-    .from('task_assignments')
-    .select('*', { count: 'exact', head: true })
-    .eq('guest_id', guest.id)
-  if (error) throw new Error('Failed to load assignment count')
-  return count ?? 0
-}
-
 export async function getSwappableTasks(): Promise<SwappableTask[]> {
   const guest = await resolveGuest()
 

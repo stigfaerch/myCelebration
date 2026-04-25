@@ -59,7 +59,8 @@
       "memories": "Minder",
       "gallery": "Galleri",
       "settings": "Indstillinger",
-      "adminLabel": "Admin"
+      "adminLabel": "Admin",
+      "openMenu": "Åbn menu"
     },
     "dashboardPage": {
       "title": "Dashboard",
@@ -80,14 +81,18 @@
     "nav": {
       "home": "Hjem",
       "tasks": "Opgaver",
+      "camera": "Kamera",
       "photos": "Billeder",
+      "program": "Program",
       "menu": "Menu",
       "where": "Hvor",
       "guests": "Deltagere",
       "memories": "Minder",
       "gallery": "Galleri",
       "primaryNavAria": "Primær navigation",
-      "openMenuAria": "Åbn menu"
+      "openMenuAria": "Åbn menu",
+      "hiddenInactive": "Skjult: ikke aktiv",
+      "hiddenWindow": "Skjult på grund af synligheds-tidsrum"
     }
   },
   "errors": {

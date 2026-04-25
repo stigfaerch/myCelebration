@@ -33,6 +33,7 @@ export function TaskForm({ task, onSave }: Props) {
       due_time: (fd.get('due_time') as string) || undefined,
       max_persons: fd.get('max_persons') ? Number(fd.get('max_persons')) : null,
       contact_host: fd.get('contact_host') === 'on',
+      is_easy: fd.get('is_easy') === 'on',
     }
 
     setError(null)
@@ -118,6 +119,17 @@ export function TaskForm({ task, onSave }: Props) {
           className="h-4 w-4"
         />
         <label htmlFor="contact_host" className="text-sm font-medium">Kontakt værten</label>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          id="is_easy"
+          name="is_easy"
+          type="checkbox"
+          defaultChecked={task?.is_easy ?? false}
+          className="h-4 w-4"
+        />
+        <label htmlFor="is_easy" className="text-sm font-medium">Let opgave</label>
       </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}

@@ -4,7 +4,7 @@ import { getFestInfo } from '@/lib/actions/information'
 import { getMyInvitation } from '@/lib/actions/guest/invitations'
 import { getChoiceDefinitions, getMyChoiceAnswers } from '@/lib/actions/guest/choices'
 import { getMyPerformances } from '@/lib/actions/guest/performances'
-import { getAssignmentCount } from '@/lib/actions/guest/tasks'
+import { getMyAssignments } from '@/lib/actions/guest/tasks'
 import { getGalleryItems } from '@/lib/actions/guest/gallery'
 import { supabaseServer } from '@/lib/supabase/server'
 import { InvitationAccept } from '@/components/guest/InvitationAccept'
@@ -16,6 +16,12 @@ import { ScreenDefault } from '@/components/screen/ScreenDefault'
 import { ScreenPage } from '@/components/screen/ScreenPage'
 import { ScreenPhoto } from '@/components/screen/ScreenPhoto'
 import { ScreenMemory } from '@/components/screen/ScreenMemory'
+import { ScreenPageCycle } from '@/components/screen/ScreenPageCycle'
+import {
+  hasAnyScreenAssignments,
+  getVisibleScreenAssignments,
+  getScreenCycleSettings,
+} from '@/lib/actions/screenAssignments'
 
 interface Props {
   params: Promise<{ uuid: string }>
@@ -30,6 +36,33 @@ export default async function ForsidePage({ params }: Props) {
 
   // Screen-type guests render based on screen_state override; fall back to gallery.
   if (guest.type === 'screen') {
+    // Pages-mode (multi-page cycling) takes priority over the legacy
+    // single-override flow. If ANY assignments exist for this screen, we
+    // are in pages-mode — even if zero are currently visible (the cycler
+    // renders blank-black until the schedule rolls back into a visible
+    // window). This is intentional: assigning pages is an explicit
+    // operator signal that should not silently fall through to gallery.
+    if (await hasAnyScreenAssignments(guest.id)) {
+      const [visibleAssignments, cycleSettings] = await Promise.all([
+        getVisibleScreenAssignments(guest.id),
+        getScreenCycleSettings(guest.id),
+      ])
+      return (
+        <ScreenRouter guestId={guest.id}>
+          <ScreenPageCycle
+            screenGuestId={guest.id}
+            initialPages={visibleAssignments.map((a) => ({
+              id: a.page.id,
+              title: a.page.title,
+              content: a.page.content,
+            }))}
+            initialCycleSeconds={cycleSettings.cycle_seconds}
+            initialTransition={cycleSettings.transition}
+          />
+        </ScreenRouter>
+      )
+    }
+
     const { data: stateRow } = await supabaseServer
       .from('screen_state')
       .select('current_override, override_ref_id')
@@ -97,12 +130,12 @@ export default async function ForsidePage({ params }: Props) {
     return <ScreenRouter guestId={guest.id}>{content}</ScreenRouter>
   }
 
-  const [invitation, definitions, answers, performances, taskCount] = await Promise.all([
+  const [invitation, definitions, answers, performances, assignments] = await Promise.all([
     getMyInvitation(),
     getChoiceDefinitions(),
     getMyChoiceAnswers(),
     getMyPerformances(),
-    getAssignmentCount(),
+    getMyAssignments(),
   ])
 
   const answersMap: Record<string, string> = Object.fromEntries(
@@ -114,6 +147,8 @@ export default async function ForsidePage({ params }: Props) {
   const description = (festInfo as { description?: Record<string, unknown> | null } | null)
     ?.description
 
+  const invitationAccepted = invitation?.accepted === true
+
   return (
     <div className="p-4 space-y-6">
       {description && (
@@ -121,10 +156,11 @@ export default async function ForsidePage({ params }: Props) {
           <RichTextDisplay content={description} />
         </section>
       )}
-      <InvitationAccept initial={invitation} />
-      <TaskIndicator uuid={uuid} count={taskCount} />
+      {!invitationAccepted && <InvitationAccept initial={invitation} />}
+      <TaskIndicator uuid={uuid} assignments={assignments} />
       <ChoiceAnswers definitions={definitions} initialAnswers={answersMap} />
       <PerformanceManager initialPerformances={performances} />
+      {invitationAccepted && <InvitationAccept initial={invitation} />}
     </div>
   )
 }

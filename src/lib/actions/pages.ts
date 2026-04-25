@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
 import { clearScreenOverridesFor } from '@/lib/actions/screen'
+import { appendPageToNavOrder, removePageFromNavOrder } from '@/lib/actions/settings'
 
 export interface PageSummary {
   id: string
@@ -58,18 +59,26 @@ export async function createPage(formData: PageFormData): Promise<void> {
   if (countError) throw new Error('Failed to create page')
   const sort_order = count ?? 0
 
-  const { error } = await supabaseServer.from('pages').insert({
-    slug: formData.slug,
-    title: formData.title,
-    content: formData.content,
-    is_active: formData.is_active,
-    visible_from: formData.visible_from,
-    visible_until: formData.visible_until,
-    sort_order,
-  })
-  if (error) throw new Error('Failed to create page')
+  const { data: inserted, error } = await supabaseServer
+    .from('pages')
+    .insert({
+      slug: formData.slug,
+      title: formData.title,
+      content: formData.content,
+      is_active: formData.is_active,
+      visible_from: formData.visible_from,
+      visible_until: formData.visible_until,
+      sort_order,
+    })
+    .select('id')
+    .single()
+  if (error || !inserted) throw new Error('Failed to create page')
+
+  await appendPageToNavOrder((inserted as { id: string }).id)
 
   revalidatePath('/admin/sider')
+  revalidatePath('/admin/indstillinger')
+  revalidatePath('/[uuid]', 'layout')
 }
 
 export async function updatePage(id: string, formData: PageFormData): Promise<void> {
@@ -88,16 +97,22 @@ export async function updatePage(id: string, formData: PageFormData): Promise<vo
     .eq('id', id)
   if (error) throw new Error('Failed to update page')
 
+  // Visibility / slug changes affect what guests see in the bottom menu.
   revalidatePath('/admin/sider')
+  revalidatePath('/admin/indstillinger')
+  revalidatePath('/[uuid]', 'layout')
 }
 
 export async function deletePage(id: string): Promise<void> {
   await assertAdmin()
 
   await clearScreenOverridesFor('page', id)
+  await removePageFromNavOrder(id)
 
   const { error } = await supabaseServer.from('pages').delete().eq('id', id)
   if (error) throw new Error('Failed to delete page')
 
   revalidatePath('/admin/sider')
+  revalidatePath('/admin/indstillinger')
+  revalidatePath('/[uuid]', 'layout')
 }

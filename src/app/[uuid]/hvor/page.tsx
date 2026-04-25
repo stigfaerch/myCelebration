@@ -22,6 +22,8 @@ export default async function HvorPage() {
             key={event.id}
             event={{
               name: event.name,
+              description: event.description ?? null,
+              start_time: event.start_time ?? null,
               address: event.address ?? null,
               google_maps_embed: event.google_maps_embed ?? null,
               map_image_url: event.map_image_url ?? null,

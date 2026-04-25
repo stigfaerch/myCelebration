@@ -1,17 +1,63 @@
-import { getPages } from '@/lib/actions/pages'
-import { PageManager } from '@/components/admin/PageManager'
+import { getResolvedNavForAdmin } from '@/lib/actions/settings'
+import { MenuManager } from '@/components/admin/MenuManager'
+import { getScreenGuests } from '@/lib/actions/screen'
+import {
+  getAssignmentsMapByPage,
+  getRotationCountsForScreen,
+} from '@/lib/actions/screenAssignments'
+import { ScreenCycleSettingsSection } from '@/components/admin/ScreenCycleSettings'
 
 export default async function SiderPage() {
-  const pages = await getPages()
+  // Fetch independent data in parallel — three queries that share no
+  // dependencies. Counts per screen run once-per-screen but those are short.
+  const [items, screens, assignmentsByPageId] = await Promise.all([
+    getResolvedNavForAdmin(),
+    getScreenGuests(),
+    getAssignmentsMapByPage(),
+  ])
+
+  const rotationCounts = await Promise.all(
+    screens.map(async (s) => {
+      const c = await getRotationCountsForScreen(s.id)
+      return { id: s.id, ...c }
+    })
+  )
+  const countsById = new Map(rotationCounts.map((r) => [r.id, r]))
+
+  const sectionScreens = screens.map((s) => ({
+    id: s.id,
+    name: s.name,
+    is_primary_screen: s.is_primary_screen,
+    cycle_seconds: s.screen_cycle_seconds,
+    transition: s.screen_transition,
+    visibleCount: countsById.get(s.id)?.visible ?? 0,
+    hiddenCount: countsById.get(s.id)?.hidden ?? 0,
+  }))
+
+  // The MenuManager toggle only needs the identity fields, not the cycle
+  // settings — narrow the props to the toggle's expected shape.
+  const screenInfos = screens.map((s) => ({
+    id: s.id,
+    name: s.name,
+    is_primary_screen: s.is_primary_screen,
+  }))
+
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Sider</h1>
+        <h1 className="text-2xl font-semibold">Sider og menu</h1>
         <p className="text-sm text-muted-foreground">
-          Statiske sider som vises til gæster. Aktiver og tidsbegræns efter behov.
+          Her administrerer du sider og rækkefølgen i bundmenuen. Slot 1 (Hjem)
+          og slot 4 (Menu) er faste. De første to elementer i listen vises som
+          slot 2 og 3 i bundmenuen — resten ligger i Menu-sheet&apos;en.
         </p>
       </div>
-      <PageManager initialPages={pages} />
+      <MenuManager
+        initialItems={items}
+        screens={screenInfos}
+        assignmentsByPageId={assignmentsByPageId}
+      />
+      <ScreenCycleSettingsSection screens={sectionScreens} />
     </div>
   )
 }

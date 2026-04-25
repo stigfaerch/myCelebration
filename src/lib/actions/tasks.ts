@@ -11,6 +11,7 @@ export interface Task {
   due_time: string | null
   max_persons: number | null
   contact_host: boolean
+  is_easy: boolean
   sort_order: number
   created_at: string
 }
@@ -31,6 +32,7 @@ export async function createTask(formData: {
   due_time?: string
   max_persons?: number | null
   contact_host: boolean
+  is_easy: boolean
 }) {
   await assertAdmin()
   const { error } = await supabaseServer.from('tasks').insert(formData)
@@ -45,6 +47,7 @@ export async function updateTask(id: string, formData: {
   due_time?: string
   max_persons?: number | null
   contact_host: boolean
+  is_easy: boolean
 }) {
   await assertAdmin()
   const { error } = await supabaseServer.from('tasks').update(formData).eq('id', id)

@@ -18,7 +18,7 @@ All other data access goes through `server.ts`. The anon key is subject to RLS p
 
 ## Auth Pattern
 
-This project does **not** use Supabase Auth. All authentication is handled by Next.js middleware (`src/middleware.ts`) using password-based session logic. Supabase is used purely as a database and realtime layer.
+This project does **not** use Supabase Auth. All authentication is handled by Next.js proxy (`src/proxy.ts`) using password-based session logic. Supabase is used purely as a database and realtime layer.
 
 ## How to Configure `.env.local`
 

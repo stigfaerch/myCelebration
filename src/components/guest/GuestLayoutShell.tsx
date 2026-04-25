@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { BottomMenu } from './BottomMenu'
+import { BottomMenu, type BottomMenuItem } from './BottomMenu'
 import { cn } from '@/lib/utils'
 
 interface GuestLayoutShellProps {
   children: React.ReactNode
   guestName: string
   uuid: string
+  navItems: BottomMenuItem[]
   showBottomMenu?: boolean
 }
 
@@ -13,6 +14,7 @@ export function GuestLayoutShell({
   children,
   guestName,
   uuid,
+  navItems,
   showBottomMenu = true,
 }: GuestLayoutShellProps) {
   return (
@@ -23,7 +25,7 @@ export function GuestLayoutShell({
       <main className={cn('flex-1 overflow-auto', showBottomMenu && 'pb-16')}>
         {children}
       </main>
-      {showBottomMenu && <BottomMenu uuid={uuid} />}
+      {showBottomMenu && <BottomMenu uuid={uuid} navItems={navItems} />}
     </div>
   )
 }

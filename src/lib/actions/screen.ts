@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
+import type { ScreenTransition } from '@/lib/actions/screenAssignments'
 
 export type ScreenOverrideType = 'page' | 'photo' | 'memory' | 'gallery' | 'program'
 
@@ -9,16 +10,38 @@ export interface ScreenGuest {
   id: string
   name: string
   is_primary_screen: boolean
+  screen_cycle_seconds: number
+  screen_transition: ScreenTransition
 }
 
 export async function getScreenGuests(): Promise<ScreenGuest[]> {
   const { data, error } = await supabaseServer
     .from('guests')
-    .select('id, name, is_primary_screen')
+    .select('id, name, is_primary_screen, screen_cycle_seconds, screen_transition')
     .eq('type', 'screen')
     .order('name')
   if (error) throw new Error('Failed to load screen guests')
-  return (data ?? []) as ScreenGuest[]
+
+  type Row = {
+    id: string
+    name: string
+    is_primary_screen: boolean
+    screen_cycle_seconds: number | null
+    screen_transition: string | null
+  }
+
+  return ((data ?? []) as Row[]).map((row) => {
+    const rawTransition = row.screen_transition ?? 'fade'
+    const transition: ScreenTransition =
+      rawTransition === 'slide' || rawTransition === 'none' ? rawTransition : 'fade'
+    return {
+      id: row.id,
+      name: row.name,
+      is_primary_screen: row.is_primary_screen,
+      screen_cycle_seconds: row.screen_cycle_seconds ?? 8,
+      screen_transition: transition,
+    }
+  })
 }
 
 export async function showOnPrimaryScreen(

@@ -6,11 +6,11 @@ const GUEST_PASSWORD = process.env.GUEST_PASSWORD ?? ''
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Always strip any inbound x-guest-* headers — these are set exclusively by
-  // this middleware and must never be trusted from the client.
+  // this proxy and must never be trusted from the client.
   const forwarded = new Headers(request.headers)
   forwarded.delete('x-guest-id')
   forwarded.delete('x-guest-type')
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
 
   // Non-admin, non-guest path. Reject Server Action POSTs outright — a guest
   // action invoked from a path with no UUID prefix cannot produce a trustworthy
-  // identity, and without middleware headers resolveGuest() would throw anyway.
+  // identity, and without proxy headers resolveGuest() would throw anyway.
   if (isServerAction) {
     return new NextResponse('Forbidden', { status: 403 })
   }

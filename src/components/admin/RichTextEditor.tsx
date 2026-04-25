@@ -11,6 +11,7 @@ interface Props {
 
 export function RichTextEditor({ value, onChange, placeholder: _placeholder }: Props) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [StarterKit],
     content: value ?? '',
     editorProps: {

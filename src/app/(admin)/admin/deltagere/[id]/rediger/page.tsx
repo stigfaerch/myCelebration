@@ -1,5 +1,6 @@
 import { getGuest, updateGuestAction, deleteGuestAction } from '@/lib/actions/guests'
 import { GuestForm } from '@/components/admin/GuestForm'
+import { ConfirmSubmitButton } from '@/components/admin/ConfirmSubmitButton'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -39,17 +40,12 @@ export default async function RedigerDeltager({ params }: Props) {
 
       <div className="mt-8 pt-8 border-t">
         <form action={deleteAction}>
-          <button
-            type="submit"
+          <ConfirmSubmitButton
+            confirmMessage={`Slet ${guest.name}? Dette kan ikke fortrydes.`}
             className="rounded-md border border-destructive px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
-            onClick={(e) => {
-              if (!confirm(`Slet ${guest.name}? Dette kan ikke fortrydes.`)) {
-                e.preventDefault()
-              }
-            }}
           >
             Slet deltager
-          </button>
+          </ConfirmSubmitButton>
         </form>
       </div>
     </div>

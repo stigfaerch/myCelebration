@@ -13,23 +13,38 @@ interface Assignment {
 interface Props {
   taskId: string
   assignments: Assignment[]
-  allGuests: Array<{ id: string; name: string; type: string }>
-  allTasks: Array<{ id: string; title: string }>
+  allGuests: Array<{
+    id: string
+    name: string
+    type: string
+    task_participation: 'none' | 'easy' | 'all'
+  }>
+  allTasks: Array<{ id: string; title: string; is_easy: boolean }>
   contactHost: boolean
+  isEasy: boolean
 }
 
-export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks, contactHost }: Props) {
+export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks, contactHost, isEasy }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [selectedGuestId, setSelectedGuestId] = useState<string>('')
   const [localContactHost, setLocalContactHost] = useState(contactHost)
+  const [moveResetKey, setMoveResetKey] = useState(0)
 
   const assignedGuestIds = new Set(assignments.map((a) => a.guest_id))
 
-  // Filter: no screen-type guests, no already-assigned guests
-  const availableGuests = allGuests.filter(
-    (g) => g.type !== 'screen' && !assignedGuestIds.has(g.id)
-  )
+  // Filter eligible guests:
+  //   - exclude screen-type guests
+  //   - exclude already-assigned guests
+  //   - exclude guests with task_participation = 'none'
+  //   - exclude guests with task_participation = 'easy' unless this task is_easy
+  const availableGuests = allGuests.filter((g) => {
+    if (g.type === 'screen') return false
+    if (assignedGuestIds.has(g.id)) return false
+    if (g.task_participation === 'none') return false
+    if (g.task_participation === 'easy' && !isEasy) return false
+    return true
+  })
 
   // Other tasks for "move to" dropdown
   const otherTasks = allTasks.filter((t) => t.id !== taskId)
@@ -58,11 +73,34 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
 
   function handleMove(assignmentId: string, newTaskId: string) {
     if (!newTaskId) return
+
+    // Warn before moving an "easy-only" guest to a non-easy task.
+    const assignment = assignments.find((a) => a.id === assignmentId)
+    const guest = assignment ? allGuests.find((g) => g.id === assignment.guest_id) : null
+    const target = allTasks.find((t) => t.id === newTaskId)
+    if (guest && target && guest.task_participation === 'easy' && !target.is_easy) {
+      const guestName = guest.name
+      const targetTitle = target.title
+      const ok = confirm(
+        `${guestName} er kun markeret med "Lette opgaver". ${targetTitle} er ikke markeret som "Let opgave". Flyt alligevel?`,
+      )
+      if (!ok) {
+        // Reset the dropdown back to its placeholder option.
+        setMoveResetKey((k) => k + 1)
+        return
+      }
+    }
+
     startTransition(async () => {
       try {
         await moveGuestToTask(assignmentId, newTaskId)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Fejl ved flytning')
+      } finally {
+        // Reset the dropdown back to its placeholder option after the move
+        // completes (success or error) so the select doesn't stay stuck on
+        // the chosen target.
+        setMoveResetKey((k) => k + 1)
       }
     })
   }
@@ -116,6 +154,7 @@ export function TaskAssignmentManager({ taskId, assignments, allGuests, allTasks
               {/* Move to another task */}
               {otherTasks.length > 0 && (
                 <select
+                  key={`move-${assignment.id}-${moveResetKey}`}
                   defaultValue=""
                   onChange={(e) => handleMove(assignment.id, e.target.value)}
                   disabled={isPending}

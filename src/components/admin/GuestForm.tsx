@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { Guest, GuestType } from '@/lib/actions/guests'
+import { ScreenCycleSettingsFields } from '@/components/admin/ScreenCycleSettings'
 
 interface Props {
   defaultValues?: Partial<Guest>
@@ -88,6 +89,15 @@ export function GuestForm({ defaultValues, action, submitLabel = 'Gem' }: Props)
             />
             <label htmlFor="is_primary_screen" className="text-sm">Primær skærm</label>
           </div>
+          {/* Cycle-settings fields. Submitted as part of updateGuestAction so
+              the same form save handles both identity (is_primary_screen) and
+              cycle behaviour. The /admin/sider bottom section persists via the
+              dedicated updateScreenCycleSettings action — different surface,
+              same data shape. */}
+          <ScreenCycleSettingsFields
+            defaultCycleSeconds={defaultValues?.screen_cycle_seconds ?? 8}
+            defaultTransition={defaultValues?.screen_transition ?? 'fade'}
+          />
         </div>
       )}
 

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef } from 'react'
 import { getProgramItems, createProgramItem, updateProgramItem, type ProgramItemType } from '@/lib/actions/program'
 import { getPerformances } from '@/lib/actions/performances'
 import { Button } from '@/components/ui/button'
@@ -41,7 +41,13 @@ function getGuestName(perf: Performances[number]): string {
 export function ProgramItemForm({ item, performances, items, defaultParentId, onSave, onCancel }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [selectedType, setSelectedType] = useState<ProgramItemType>(item?.type ?? 'info')
+  // Default Type to 'performance' on new items so the indslag picker is
+  // immediately visible. When editing, preserve the existing type.
+  const [selectedType, setSelectedType] = useState<ProgramItemType>(
+    item?.type ?? 'performance'
+  )
+  const titleRef = useRef<HTMLInputElement>(null)
+  const durationRef = useRef<HTMLInputElement>(null)
 
   const topLevelItems = useMemo(
     () => items.filter((i) => i.parent_id === null),
@@ -98,9 +104,33 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
     })
   }
 
-  const approvedPerformances = performances.filter(
-    (p) => p.status === 'approved' || p.status === 'scheduled'
-  )
+  // Show all indslag except explicitly-rejected ones. Pending indslag should
+  // be selectable so the admin doesn't have to approve before scheduling.
+  const selectablePerformances = performances.filter((p) => p.status !== 'rejected')
+
+  function handlePerformanceChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value
+    if (!id) return
+    setSelectedType('performance')
+    const perf = selectablePerformances.find((p) => p.id === id)
+    if (!perf) return
+    if (titleRef.current && !titleRef.current.value) {
+      titleRef.current.value = perf.title
+    }
+    if (
+      durationRef.current &&
+      !durationRef.current.value &&
+      perf.duration_minutes != null
+    ) {
+      durationRef.current.value = String(perf.duration_minutes)
+    }
+  }
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: 'afventer',
+    approved: 'godkendt',
+    scheduled: 'planlagt',
+  }
 
   const parentIdDefault = item?.parent_id ?? defaultParentId ?? ''
 
@@ -109,6 +139,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
       <div className="space-y-1">
         <label htmlFor="pi-title" className="text-sm font-medium">Titel *</label>
         <input
+          ref={titleRef}
           id="pi-title"
           name="title"
           type="text"
@@ -147,6 +178,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
       <div className="space-y-1">
         <label htmlFor="pi-duration" className="text-sm font-medium">Varighed (minutter)</label>
         <input
+          ref={durationRef}
           id="pi-duration"
           name="duration_minutes"
           type="number"
@@ -163,18 +195,24 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
             id="pi-performance"
             name="performance_id"
             defaultValue={item?.performance_id ?? ''}
+            onChange={handlePerformanceChange}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">-- Vlg indslag (valgfrit) --</option>
-            {approvedPerformances.map((p) => {
-              const guestName = getGuestName(p)
-              const label = guestName
-                ? `${guestName} -- ${p.title}${p.duration_minutes ? ` (${p.duration_minutes} min)` : ''}`
-                : `${p.title}${p.duration_minutes ? ` (${p.duration_minutes} min)` : ''}`
-              return (
-                <option key={p.id} value={p.id}>{label}</option>
-              )
-            })}
+            <option value="">-- Vælg indslag (valgfrit) --</option>
+            {selectablePerformances.length === 0 ? (
+              <option value="" disabled>Ingen indslag oprettet endnu</option>
+            ) : (
+              selectablePerformances.map((p) => {
+                const guestName = getGuestName(p)
+                const statusLabel = STATUS_LABELS[p.status] ?? p.status
+                const durationSuffix = p.duration_minutes ? ` · ${p.duration_minutes} min` : ''
+                const namePrefix = guestName ? `${guestName} – ` : ''
+                const label = `${namePrefix}${p.title}${durationSuffix} [${statusLabel}]`
+                return (
+                  <option key={p.id} value={p.id}>{label}</option>
+                )
+              })
+            )}
           </select>
         </div>
       )}

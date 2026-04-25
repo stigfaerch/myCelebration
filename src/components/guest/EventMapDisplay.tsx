@@ -1,5 +1,7 @@
 import * as React from 'react'
 
+import { MapOverlay } from './MapOverlay'
+
 interface EventLocation {
   id: string
   title: string
@@ -9,6 +11,8 @@ interface EventLocation {
 interface EventMapDisplayProps {
   event: {
     name: string
+    description: string | null
+    start_time: string | null
     address: string | null
     google_maps_embed: string | null
     map_image_url: string | null
@@ -18,8 +22,9 @@ interface EventMapDisplayProps {
 }
 
 // Extract the iframe src from an admin-pasted Google Maps embed snippet, or
-// accept a bare URL. Rejects any src that isn't google.com/maps/embed — this
-// blocks arbitrary HTML/JS injection via admin-supplied embed HTML.
+// accept a bare URL. Rejects any src that isn't a Google-hosted maps embed
+// (/maps/embed for standard place embeds, /maps/d/embed for My Maps).
+// This blocks arbitrary HTML/JS injection via admin-supplied embed HTML.
 function extractMapsEmbedSrc(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -29,11 +34,19 @@ function extractMapsEmbedSrc(raw: string): string | null {
     const url = new URL(candidate)
     if (url.protocol !== 'https:') return null
     if (url.hostname !== 'www.google.com' && url.hostname !== 'maps.google.com') return null
-    if (!url.pathname.startsWith('/maps/embed')) return null
+    const path = url.pathname
+    if (!path.startsWith('/maps/embed') && !path.startsWith('/maps/d/embed')) return null
     return url.toString()
   } catch {
     return null
   }
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('da-DK', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
 }
 
 export function EventMapDisplay({ event }: EventMapDisplayProps) {
@@ -43,32 +56,40 @@ export function EventMapDisplay({ event }: EventMapDisplayProps) {
     <section className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{event.name}</h2>
+        {event.start_time ? (
+          <p className="text-sm text-muted-foreground">
+            {formatDateTime(event.start_time)}
+          </p>
+        ) : null}
         {event.address ? (
           <p className="text-sm text-muted-foreground">{event.address}</p>
         ) : null}
       </div>
 
+      {event.description ? (
+        <p className="text-sm whitespace-pre-line">{event.description}</p>
+      ) : null}
+
       {safeMapsSrc ? (
-        <div className="aspect-video w-full overflow-hidden rounded border">
-          <iframe
-            src={safeMapsSrc}
-            className="h-full w-full border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-            sandbox="allow-scripts allow-same-origin allow-popups"
-            title={`Kort: ${event.name}`}
-          />
+        <div>
+          <MapOverlay src={safeMapsSrc} eventName={event.name} />
         </div>
       ) : null}
 
       {event.map_image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={event.map_image_url}
-          alt={event.map_image_description ?? 'Kort over festlokalet'}
-          className="w-full rounded"
-        />
+        <figure className="space-y-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.map_image_url}
+            alt={event.map_image_description ?? 'Kort over festlokalet'}
+            className="w-full rounded"
+          />
+          {event.map_image_description ? (
+            <figcaption className="text-xs text-muted-foreground">
+              {event.map_image_description}
+            </figcaption>
+          ) : null}
+        </figure>
       ) : null}
 
       {event.locations.length > 0 ? (

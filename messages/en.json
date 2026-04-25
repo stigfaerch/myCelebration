@@ -62,7 +62,8 @@
       "memories": "Memories",
       "gallery": "Gallery",
       "settings": "Settings",
-      "adminLabel": "Admin"
+      "adminLabel": "Admin",
+      "openMenu": "Open menu"
     },
     "dashboardPage": {
       "title": "Dashboard",
@@ -83,14 +84,18 @@
     "nav": {
       "home": "Home",
       "tasks": "Tasks",
+      "camera": "Camera",
       "photos": "Photos",
+      "program": "Program",
       "menu": "Menu",
       "where": "Where",
       "guests": "Guests",
       "memories": "Memories",
       "gallery": "Gallery",
       "primaryNavAria": "Primary navigation",
-      "openMenuAria": "Open menu"
+      "openMenuAria": "Open menu",
+      "hiddenInactive": "Hidden: not active",
+      "hiddenWindow": "Hidden because of visibility window"
     }
   },
   "errors": {

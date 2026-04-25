@@ -4,16 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import {
-  Home,
-  CheckSquare,
-  Image as ImageIcon,
-  Menu as MenuIcon,
-  MapPin,
-  Users,
-  BookHeart,
-  LayoutGrid,
-} from 'lucide-react'
+import { Home, Menu as MenuIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import {
@@ -23,34 +14,53 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { ICON_BY_KEY, type NavIconKey } from '@/lib/guest/navItems'
+
+export interface BottomMenuItem {
+  /** Stable React key. */
+  key: string
+  href: string
+  /** i18n key under `guest.nav.*` for static items. */
+  labelKey?: string
+  /** Display title for dynamic admin pages. */
+  pageTitle?: string
+  iconKey: NavIconKey
+}
 
 interface BottomMenuProps {
   uuid: string
+  /** Already filtered to visibility — no extra filtering needed here. */
+  navItems: BottomMenuItem[]
 }
 
-interface NavItem {
+interface ResolvedItem {
+  key: string
   href: string
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  Icon: React.ComponentType<{ className?: string }>
 }
 
-export function BottomMenu({ uuid }: BottomMenuProps) {
+export function BottomMenu({ uuid, navItems }: BottomMenuProps) {
   const pathname = usePathname()
   const t = useTranslations('guest.nav')
   const [sheetOpen, setSheetOpen] = React.useState(false)
 
-  const primary: NavItem[] = [
-    { href: `/${uuid}`, label: t('home'), icon: Home },
-    { href: `/${uuid}/opgaver`, label: t('tasks'), icon: CheckSquare },
-    { href: `/${uuid}/billeder`, label: t('photos'), icon: ImageIcon },
-  ]
+  // Resolve label + icon component for each item. Page items use the supplied
+  // pageTitle directly (no i18n); static items look up their label by key.
+  const resolved = React.useMemo<ResolvedItem[]>(
+    () =>
+      navItems.map((item) => ({
+        key: item.key,
+        href: item.href,
+        label: item.labelKey ? t(item.labelKey) : (item.pageTitle ?? ''),
+        Icon: ICON_BY_KEY[item.iconKey],
+      })),
+    [navItems, t]
+  )
 
-  const secondary: NavItem[] = [
-    { href: `/${uuid}/hvor`, label: t('where'), icon: MapPin },
-    { href: `/${uuid}/deltagere`, label: t('guests'), icon: Users },
-    { href: `/${uuid}/minder`, label: t('memories'), icon: BookHeart },
-    { href: `/${uuid}/galleri`, label: t('gallery'), icon: LayoutGrid },
-  ]
+  const slot2 = resolved[0]
+  const slot3 = resolved[1]
+  const sheetItems = resolved.slice(2)
 
   const isActive = (href: string) => pathname === href
 
@@ -60,25 +70,26 @@ export function BottomMenu({ uuid }: BottomMenuProps) {
       aria-label={t('primaryNavAria')}
     >
       <div className="flex items-center justify-around py-2">
-        {primary.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'flex flex-col items-center gap-0.5 p-2 text-xs',
-                active ? 'text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              <Icon className="size-5" />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
+        {/* Slot 1 — Hjem (fixed) */}
+        <Link
+          href={`/${uuid}`}
+          aria-current={isActive(`/${uuid}`) ? 'page' : undefined}
+          className={cn(
+            'flex flex-col items-center gap-0.5 p-2 text-xs',
+            isActive(`/${uuid}`) ? 'text-foreground' : 'text-muted-foreground'
+          )}
+        >
+          <Home className="size-5" />
+          <span>{t('home')}</span>
+        </Link>
 
+        {/* Slot 2 */}
+        {slot2 && <PrimarySlot item={slot2} active={isActive(slot2.href)} />}
+
+        {/* Slot 3 */}
+        {slot3 && <PrimarySlot item={slot3} active={isActive(slot3.href)} />}
+
+        {/* Slot 4 — Menu trigger (fixed) */}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger
             render={
@@ -97,11 +108,11 @@ export function BottomMenu({ uuid }: BottomMenuProps) {
               <SheetTitle>{t('menu')}</SheetTitle>
             </SheetHeader>
             <ul className="px-2 pb-4">
-              {secondary.map((item) => {
-                const Icon = item.icon
+              {sheetItems.map((item) => {
+                const Icon = item.Icon
                 const active = isActive(item.href)
                 return (
-                  <li key={item.href}>
+                  <li key={item.key}>
                     <Link
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
@@ -124,5 +135,22 @@ export function BottomMenu({ uuid }: BottomMenuProps) {
         </Sheet>
       </div>
     </nav>
+  )
+}
+
+function PrimarySlot({ item, active }: { item: ResolvedItem; active: boolean }) {
+  const Icon = item.Icon
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex flex-col items-center gap-0.5 p-2 text-xs',
+        active ? 'text-foreground' : 'text-muted-foreground'
+      )}
+    >
+      <Icon className="size-5" />
+      <span className="max-w-[80px] truncate">{item.label}</span>
+    </Link>
   )
 }
