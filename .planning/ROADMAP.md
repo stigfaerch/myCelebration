@@ -9,7 +9,7 @@
 - [x] Phase 5: Gæste-sider
 - [x] Phase 6: Screen & Realtime
 - [x] Phase 7: Polish & Launch
-- [ ] Phase 8: Static-item Visibility & Screen Rendering
+- [x] Phase 8: Static-item Visibility & Screen Rendering
 
 ## Phase Details
 
@@ -125,4 +125,4 @@
 | Phase 5: Gæste-sider | 3 | 3 | Complete (reviewed) |
 | Phase 6: Screen & Realtime | 2 | 2 | Complete (reviewed) |
 | Phase 7: Polish & Launch | 2 | 2 | Complete (reviewed) |
-| Phase 8: Static-item Visibility & Screen Rendering | 5 | 0 | Planned |
+| Phase 8: Static-item Visibility & Screen Rendering | 5 | 5 | Complete |
