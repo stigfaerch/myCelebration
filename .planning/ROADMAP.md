@@ -125,4 +125,4 @@
 | Phase 5: Gæste-sider | 3 | 3 | Complete (reviewed) |
 | Phase 6: Screen & Realtime | 2 | 2 | Complete (reviewed) |
 | Phase 7: Polish & Launch | 2 | 2 | Complete (reviewed) |
-| Phase 8: Static-item Visibility & Screen Rendering | 5 | 5 | Complete |
+| Phase 8: Static-item Visibility & Screen Rendering | 5 | 5 | Complete (reviewed) |

@@ -1,9 +1,9 @@
 # Project State
 
 ## Current Position
-- **Phase**: 8 of 8 (executed, pending review)
-- **Status**: Phase 8 complete — all 5 plans executed successfully across 2 waves. Run `/legion:review` to verify.
-- **Last Activity**: Phase 8 execution (2026-04-25)
+- **Phase**: 8 of 8 (complete — review passed with documented follow-up)
+- **Status**: Phase 8 review passed in 1 cycle. 4 of 5 warnings resolved; Test #1 (Playwright coverage for Phase 8 features) deferred by user direction as a follow-up.
+- **Last Activity**: Phase 8 review passed (2026-04-25)
 
 ## Progress
 ```
@@ -37,10 +37,13 @@
 4. `npm i -g vercel && vercel link && vercel deploy` for preview-deployment
 
 ## Next Action
-Run `/legion:review` to verify Phase 8: Static-item Visibility & Screen Rendering.
+Phase 8 complete and reviewed. All phases (1–8) complete. See `.planning/phases/08-static-item-visibility-screen-rendering/08-REVIEW.md` for the review findings + deferred-follow-up details.
 
-**Two manual actions required before testing the new feature**:
+**Two manual actions required before testing Phase 8 features in production**:
 1. Apply migration 010 (`010_static_item_visibility.sql`) in Supabase Dashboard SQL Editor
 2. Apply migration 011 (`011_polymorphic_screen_assignments.sql`) in Supabase Dashboard SQL Editor
+
+**Documented follow-up** (deferred by user direction during Phase 8 review):
+- Add Playwright smoke specs for Phase 8 features: (a) static-item visibility 404 guards, (b) polymorphic cycler with mixed page+static items, (c) realtime DELETE propagation for static rows. Track as a follow-up phase or quick task before any multi-screen production event.
 
 Phases 1–7 remain in production-ready state — see `.planning/LAUNCH.md` and `.planning/QA-MATRIX.md` for the existing launch flow.
