@@ -1,7 +1,17 @@
+import { notFound } from 'next/navigation'
+import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getMyMemories } from '@/lib/actions/guest/memories'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 import { MemoryManager } from '@/components/guest/MemoryManager'
 
 export default async function MinderPage() {
+  await resolveGuest()
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('minder', visibilityMap))) notFound()
+
   const memories = await getMyMemories()
   return (
     <div className="p-4 space-y-4">

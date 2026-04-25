@@ -1,9 +1,17 @@
+import { notFound } from 'next/navigation'
 import { supabaseServer } from '@/lib/supabase/server'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 import { GuestList } from '@/components/guest/GuestList'
 
 export default async function DeltagerePage() {
   await resolveGuest()
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('deltagere', visibilityMap))) notFound()
+
   const { data, error } = await supabaseServer
     .from('guests')
     .select('id, name, type, relation')

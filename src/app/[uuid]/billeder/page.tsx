@@ -1,4 +1,10 @@
+import { notFound } from 'next/navigation'
+import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getMyPhotos } from '@/lib/actions/guest/photos'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 import { PhotoGrid } from '@/components/guest/PhotoGrid'
 
 interface Props {
@@ -7,6 +13,10 @@ interface Props {
 
 export default async function BillederPage({ params }: Props) {
   const { uuid } = await params
+  await resolveGuest()
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('photos', visibilityMap))) notFound()
+
   const photos = await getMyPhotos()
   return (
     <div className="p-4 space-y-4">

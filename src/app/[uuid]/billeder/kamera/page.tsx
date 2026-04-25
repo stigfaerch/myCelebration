@@ -1,4 +1,9 @@
+import { notFound } from 'next/navigation'
 import { assertNotScreen } from '@/lib/auth/resolveGuest'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 import { Camera } from '@/components/guest/Camera'
 
 interface Props {
@@ -7,6 +12,9 @@ interface Props {
 
 export default async function KameraPage({ params }: Props) {
   await assertNotScreen()
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('camera', visibilityMap))) notFound()
+
   const { uuid } = await params
   return (
     // Fullscreen overlay — covers the layout's BottomMenu

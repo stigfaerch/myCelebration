@@ -1,5 +1,10 @@
+import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getProgramItems, type ProgramItem } from '@/lib/actions/program'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 
 interface PerformanceJoin {
   id: string
@@ -92,6 +97,9 @@ function ProgramItemRow({ item, indented = false }: { item: ProgramRow; indented
 
 export default async function ProgramPage() {
   await resolveGuest()
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('program', visibilityMap))) notFound()
+
   const items = (await getProgramItems()) as ProgramRow[] | null
 
   const safe = items ?? []

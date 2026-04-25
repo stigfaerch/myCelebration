@@ -14,6 +14,7 @@ import {
   type NavOrderItem,
   type StaticNavKey,
 } from '@/lib/guest/navItems'
+import { getStaticItemVisibilityMap } from '@/lib/actions/staticItemVisibility'
 
 interface AppSettingsRow {
   id: string
@@ -225,16 +226,26 @@ export async function getResolvedNavForAdmin(): Promise<ResolvedNavAdminItem[]> 
 /**
  * Read the resolved nav for guest rendering. Filters out hidden pages and
  * silently drops anything that no longer exists.
+ *
+ * Static items are also filtered against `static_item_settings` (Phase 8 plan
+ * 08-01). A static key with NO entry in the visibility map is treated as
+ * fully visible (preserves default behavior). Admin-side resolver
+ * (`getResolvedNavForAdmin`) intentionally does NOT apply this filter — admin
+ * sees hidden items with badges.
  */
 export async function getResolvedNavForGuest(uuid: string): Promise<ResolvedNavGuestItem[]> {
-  const [{ data: settingsRow, error: settingsError }, { data: pagesRows, error: pagesError }] =
-    await Promise.all([
-      supabaseServer.from('app_settings').select('nav_order').single(),
-      supabaseServer
-        .from('pages')
-        .select('id, slug, title, is_active, visible_from, visible_until')
-        .order('sort_order'),
-    ])
+  const [
+    { data: settingsRow, error: settingsError },
+    { data: pagesRows, error: pagesError },
+    staticVisibilityMap,
+  ] = await Promise.all([
+    supabaseServer.from('app_settings').select('nav_order').single(),
+    supabaseServer
+      .from('pages')
+      .select('id, slug, title, is_active, visible_from, visible_until')
+      .order('sort_order'),
+    getStaticItemVisibilityMap(),
+  ])
   if (settingsError) throw new Error(settingsError.message)
   if (pagesError) throw new Error(pagesError.message)
 
@@ -246,6 +257,8 @@ export async function getResolvedNavForGuest(uuid: string): Promise<ResolvedNavG
   const out: ResolvedNavGuestItem[] = []
   for (const item of order) {
     if (item.kind === 'static') {
+      const visibility = staticVisibilityMap[item.key]
+      if (visibility && !isPageVisibleNow(visibility)) continue
       const meta = STATIC_NAV_META[item.key]
       out.push({
         key: `static:${item.key}`,

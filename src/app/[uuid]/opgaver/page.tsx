@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import {
   getMyAssignments,
   getMySwapRequests,
@@ -5,6 +6,10 @@ import {
   getIncomingSwapRequests,
 } from '@/lib/actions/guest/tasks'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
+import {
+  getStaticItemVisibilityMap,
+  isStaticItemVisibleNow,
+} from '@/lib/actions/staticItemVisibility'
 import { TaskList } from '@/components/guest/TaskList'
 import { IncomingSwapList } from '@/components/guest/IncomingSwapList'
 
@@ -15,6 +20,9 @@ interface Props {
 export default async function OpgaverPage({ params }: Props) {
   const { uuid } = await params
   const guest = await resolveGuest()
+
+  const visibilityMap = await getStaticItemVisibilityMap()
+  if (!(await isStaticItemVisibleNow('tasks', visibilityMap))) notFound()
 
   // Screen-type guests should not see this page
   if (guest.type === 'screen') {
