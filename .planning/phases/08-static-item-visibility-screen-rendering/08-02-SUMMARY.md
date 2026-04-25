@@ -83,3 +83,33 @@ The migration is idempotent (`add column if not exists`, `drop constraint if exi
 - **Reorder asymmetry.** `reorderScreenAssignments` is page-only. If Wave 2 admin UI exposes per-kind reordering, it will work fine across kinds because sort_order is a single space; but a "reorder mixed" action is not yet implemented. The Wave 2 admin UI plan (08-03) should decide whether to add `reorderMixedAssignments` or to keep page-only reorder + append-static semantics.
 - **Static-visibility realtime.** As noted above, toggling a static item's `is_active` in admin will not push to live screens until the screen's next normal refetch trigger (e.g., a page or static assignment change). This is an explicit v1 acceptance per 08-CONTEXT.md. Plan 08-05 may surface this in user-visible help text if the gap is surprising.
 - **`hasAnyScreenAssignments` semantic shift.** Pre-migration: counts page assignments. Post-migration: counts page OR static assignments. Existing callers that branch on this (e.g., `src/app/[uuid]/page.tsx`'s screen-mode decision) will now ALSO enter cycle mode for screens with only static assignments — this is the intended Phase 8 behavior, but worth flagging because it's an observable behavior change for screens that have static-only assignments after 08-05 ships.
+
+## Manual SQL verification of `hasAnyScreenAssignments` (added in Cycle 1 review — Finding #4)
+
+The Cycle 1 reviewer flagged that the static-only counter case is a behavioral change without automated coverage. Until tests land, run this manual SQL pass after applying migrations 010 and 011 (replace `<screen_id>` with a real screen-type guest's id, `<page_id>` with a real `pages.id`):
+
+```sql
+-- Empty: no rows for this screen.
+delete from screen_page_assignments where screen_guest_id = '<screen_id>';
+-- Expect getResolvedNavForGuest screen-branch to take the legacy path.
+
+-- Page-only.
+insert into screen_page_assignments (screen_guest_id, page_id, kind)
+  values ('<screen_id>', '<page_id>', 'page');
+-- Expect hasAnyScreenAssignments → true.
+
+-- Add a static row.
+insert into screen_page_assignments (screen_guest_id, static_key, kind)
+  values ('<screen_id>', 'galleri', 'static');
+-- Expect hasAnyScreenAssignments → true (mixed).
+
+-- Static-only.
+delete from screen_page_assignments
+  where screen_guest_id = '<screen_id>' and kind = 'page';
+-- Expect hasAnyScreenAssignments → true (the Phase 8 behavioral change).
+
+-- Cleanup.
+delete from screen_page_assignments where screen_guest_id = '<screen_id>';
+```
+
+If any case returns the wrong value, the `kind`-agnostic counter has regressed (likely an unintended `where kind = 'page'` filter slip).

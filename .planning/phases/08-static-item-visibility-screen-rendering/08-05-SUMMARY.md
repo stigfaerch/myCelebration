@@ -108,3 +108,15 @@ Confirmed v1 limitation (per 08-CONTEXT.md "Out of Scope"): toggling a static it
 Bonus walk-through (Opgaver + strict-blank):
 6. **Admin assigns Opgaver, but the static-item visibility map says it's outside its window.**
    `getVisibleScreenAssignmentsMixed` filters the row out at the visibility step. `getHydratedMixedScreenItems` returns `[]`. `hasAnyScreenAssignments` returns true (the row exists), so the screen branch enters cycle mode anyway. Cycler receives `initialItems = []` and renders `<div className="h-screen w-screen bg-black" />` per the strict-blank invariant — does NOT fall through to gallery default. Once the schedule rolls back into the visible window, the next realtime tick (or any other assignment-row change) refetches and the screen lights back up automatically.
+
+## Manual realtime DELETE verification (added in Cycle 1 review — Finding #3)
+
+Migration 009 set REPLICA IDENTITY FULL on `screen_page_assignments` so DELETE events propagate with full row data (the `screen_guest_id` filter the cycler subscribes on lives in the deleted row). Migration 011 makes the table polymorphic but preserves the table-level REPLICA IDENTITY property — DELETE coverage is inherited. The Cycle 1 reviewer flagged that this load-bearing assumption (Decision B1's "one realtime topic for free") was never re-verified for the new static-row kind.
+
+**Setup**: Open `/{SCREEN_UUID}` in browser tab A (a screen-type guest's URL). Open `/admin/sider` in tab B. Apply migrations 010 and 011. Ensure at least one screen exists with `is_primary_screen=true`.
+
+7. **Add static assignment, then remove it.** In tab B, click the Monitor toggle on the Galleri row → tab A should show the gallery within ~1s (INSERT realtime). Click Monitor again to remove → tab A should clear back to whatever the priority chain dictates next (legacy override or gallery default) within ~1s. **This is the migration 009 invariant applied to the static-row path.** Repeat for Deltagere, Hvor, Opgaver, Program.
+
+8. **Mixed cycle DELETE.** Add Galleri + Program + a dynamic page (3 items). Confirm tab A cycles every 8s. Remove Program (Monitor toggle off) → tab A cycle should drop to 2 items within ~1s without flicker. Remove Galleri → tab A should cycle the dynamic page only. Remove the dynamic page → tab A should clear back to the priority chain fallback.
+
+9. **Legacy `showOnPrimaryScreen` shadowing edge case** (Cycle 1 Finding #5). On a screen with at least one assignment (any kind), use Photo Manager's "Vis på skærm" on a photo. Confirm tab A continues showing the cycle (NOT the photo). The cycler takes priority over the legacy single-override path; this is intended but worth confirming so operators understand the precedence rule.

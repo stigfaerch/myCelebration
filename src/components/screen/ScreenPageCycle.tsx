@@ -98,8 +98,25 @@ function CycleItemView({ item }: { item: MixedScreenItem }) {
       const data = item.data as { items: ScreenProgramRow[] }
       return <ScreenProgram items={data.items} />
     }
-    default:
-      return <div className="absolute inset-0 bg-black" />
+    default: {
+      // Defensive fallback for an unknown static_key (e.g., key removed from
+      // STATIC_NAV_KEYS but assignment row still in DB). Log so operators
+      // see something in the screen browser console; show a small label so
+      // the slide isn't silently black for cycle_seconds.
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[ScreenPageCycle] Unknown static_key in assignment: ${item.staticKey}`
+        )
+      }
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-black p-8">
+          <span className="text-sm text-white/30">
+            Ukendt skærm-element: {item.staticKey}
+          </span>
+        </div>
+      )
+    }
   }
 }
 

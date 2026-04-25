@@ -1,4 +1,5 @@
 'use server'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
@@ -774,13 +775,29 @@ async function hydrateStaticItemData(staticKey: string): Promise<unknown> {
  * the old `getVisibleScreenAssignments` call so that BOTH page and static
  * slots are refreshed in a single round trip.
  *
- * Public (matches the `getVisibleScreenAssignments*` posture). Visibility
- * is filtered server-side via `getVisibleScreenAssignmentsMixed`. Static
- * keys whose hydration returns `null` are dropped (defensive).
+ * Identity-gated: caller must EITHER be the screen guest itself (the only
+ * legitimate non-admin caller — the cycler running on the screen browser),
+ * OR be an authenticated admin. This closes the cross-guest leak where
+ * any logged-in guest could request another screen's hydrated payload
+ * (full task list with assignees, full guest list, etc.) by passing a
+ * different UUID. Visibility-filtered + null-dropped (defensive).
  */
 export async function getHydratedMixedScreenItems(
   screenGuestId: string
 ): Promise<MixedScreenItem[]> {
+  // Caller-identity check. The proxy sets x-guest-id / x-guest-type headers
+  // on UUID-prefixed requests; admin requests don't carry guest headers but
+  // do present a valid admin_token cookie. Accept either.
+  const h = await headers()
+  const callerGuestId = h.get('x-guest-id')
+  const callerGuestType = h.get('x-guest-type')
+  const isLegitimateScreen =
+    callerGuestId === screenGuestId && callerGuestType === 'screen'
+  if (!isLegitimateScreen) {
+    // Fall back to admin gate. assertAdmin throws on failure.
+    await assertAdmin()
+  }
+
   const visible = await getVisibleScreenAssignmentsMixed(screenGuestId)
   // Hydrate static-item data in parallel — these are independent fetches.
   const hydrated = await Promise.all(
