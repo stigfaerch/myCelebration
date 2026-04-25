@@ -4,16 +4,29 @@ import { getScreenGuests } from '@/lib/actions/screen'
 import {
   getAssignmentsMapByPage,
   getRotationCountsForScreen,
+  getStaticAssignmentsMapByKey,
 } from '@/lib/actions/screenAssignments'
+import { getStaticItemVisibilityMap } from '@/lib/actions/staticItemVisibility'
 import { ScreenCycleSettingsSection } from '@/components/admin/ScreenCycleSettings'
 
 export default async function SiderPage() {
-  // Fetch independent data in parallel — three queries that share no
+  // Fetch independent data in parallel — five queries that share no
   // dependencies. Counts per screen run once-per-screen but those are short.
-  const [items, screens, assignmentsByPageId] = await Promise.all([
+  // The two new fetches (Plan 08-03) cover static-item visibility + static
+  // screen-assignments so MenuManager can render parity controls on static
+  // rows.
+  const [
+    items,
+    screens,
+    assignmentsByPageId,
+    staticVisibilityMap,
+    staticAssignmentsByKey,
+  ] = await Promise.all([
     getResolvedNavForAdmin(),
     getScreenGuests(),
     getAssignmentsMapByPage(),
+    getStaticItemVisibilityMap(),
+    getStaticAssignmentsMapByKey(),
   ])
 
   const rotationCounts = await Promise.all(
@@ -56,6 +69,8 @@ export default async function SiderPage() {
         initialItems={items}
         screens={screenInfos}
         assignmentsByPageId={assignmentsByPageId}
+        staticVisibilityMap={staticVisibilityMap}
+        staticAssignmentsByKey={staticAssignmentsByKey}
       />
       <ScreenCycleSettingsSection screens={sectionScreens} />
     </div>

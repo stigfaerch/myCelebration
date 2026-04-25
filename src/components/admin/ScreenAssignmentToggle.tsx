@@ -14,6 +14,8 @@ import {
 import {
   addPageToScreen,
   removePageFromScreen,
+  addStaticItemToScreen,
+  removeStaticItemFromScreen,
 } from '@/lib/actions/screenAssignments'
 
 /**
@@ -25,11 +27,19 @@ export interface ScreenInfo {
   is_primary_screen: boolean
 }
 
+/**
+ * Discriminated subject. The toggle does not care whether it's controlling
+ * page or static-item assignments — it just dispatches to the correct
+ * server action based on `kind`.
+ */
+export type AssignmentSubject =
+  | { kind: 'page'; pageId: string; pageLabel: string }
+  | { kind: 'static'; staticKey: string; staticLabel: string }
+
 interface Props {
-  pageId: string
-  pageLabel: string
+  subject: AssignmentSubject
   screens: ScreenInfo[]
-  /** Currently-assigned screen ids for this page. */
+  /** Currently-assigned screen ids for this subject. */
   assignedScreenIds: string[]
   /**
    * Bubble errors back to the parent so MenuManager can surface them in its
@@ -57,9 +67,39 @@ function sortScreens(screens: ScreenInfo[]): ScreenInfo[] {
   })
 }
 
+/**
+ * Subject-agnostic helpers: read display label and dispatch the correct
+ * mutation for the current `subject.kind`. Hoisted so the component body
+ * stays focused on UI concerns.
+ */
+function subjectLabel(subject: AssignmentSubject): string {
+  return subject.kind === 'page' ? subject.pageLabel : subject.staticLabel
+}
+
+async function addToScreenForSubject(
+  subject: AssignmentSubject,
+  screenId: string
+): Promise<void> {
+  if (subject.kind === 'page') {
+    await addPageToScreen(screenId, subject.pageId)
+  } else {
+    await addStaticItemToScreen(screenId, subject.staticKey)
+  }
+}
+
+async function removeFromScreenForSubject(
+  subject: AssignmentSubject,
+  screenId: string
+): Promise<void> {
+  if (subject.kind === 'page') {
+    await removePageFromScreen(screenId, subject.pageId)
+  } else {
+    await removeStaticItemFromScreen(screenId, subject.staticKey)
+  }
+}
+
 export function ScreenAssignmentToggle({
-  pageId,
-  pageLabel,
+  subject,
   screens,
   assignedScreenIds,
   onError,
@@ -81,6 +121,8 @@ export function ScreenAssignmentToggle({
   const sortedScreens = React.useMemo(() => sortScreens(screens), [screens])
   const primary = sortedScreens.find((s) => s.is_primary_screen)
   const noScreens = sortedScreens.length === 0
+
+  const label = subjectLabel(subject)
 
   // Long-press tracking. Refs because they are transient and must not trigger
   // re-renders.
@@ -108,9 +150,9 @@ export function ScreenAssignmentToggle({
     startTransition(async () => {
       try {
         if (isAssigned) {
-          await removePageFromScreen(screenId, pageId)
+          await removeFromScreenForSubject(subject, screenId)
         } else {
-          await addPageToScreen(screenId, pageId)
+          await addToScreenForSubject(subject, screenId)
         }
       } catch (err) {
         // Rollback on error.
@@ -227,7 +269,7 @@ export function ScreenAssignmentToggle({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        aria-label={`${tooltip} — ${pageLabel}`}
+        aria-label={`${tooltip} — ${label}`}
         title={tooltip}
         className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
       >

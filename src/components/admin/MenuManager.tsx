@@ -49,6 +49,25 @@ import {
   ScreenAssignmentToggle,
   type ScreenInfo,
 } from '@/components/admin/ScreenAssignmentToggle'
+import {
+  StaticItemVisibilityControls,
+  VisibilityBadges,
+} from '@/components/admin/StaticItemVisibilityControls'
+import type { StaticItemVisibility } from '@/lib/actions/staticItemVisibility'
+
+/**
+ * Static keys that admins can show on screens (R25 in PROJECT.md). The other
+ * static keys (`camera`, `photos`, `minder`) get visibility controls but no
+ * screen-toggle — Camera depends on the camera API, Billeder is per-guest
+ * private content, and Minder is out of scope per the ROADMAP wording.
+ */
+const SCREEN_ELIGIBLE_STATIC_KEYS = new Set([
+  'galleri',
+  'deltagere',
+  'hvor',
+  'tasks',
+  'program',
+])
 
 interface Props {
   initialItems: ResolvedNavAdminItem[]
@@ -56,6 +75,10 @@ interface Props {
   screens: ScreenInfo[]
   /** page_id → assigned screen_guest_ids[]. Plumbed from the server. */
   assignmentsByPageId: Record<string, string[]>
+  /** static_key → current visibility record (absent key == fully visible). */
+  staticVisibilityMap: Record<string, StaticItemVisibility>
+  /** static_key → assigned screen_guest_ids[]. */
+  staticAssignmentsByKey: Record<string, string[]>
 }
 
 function formatDate(iso: string | null): string {
@@ -81,6 +104,8 @@ export function MenuManager({
   initialItems,
   screens,
   assignmentsByPageId,
+  staticVisibilityMap,
+  staticAssignmentsByKey,
 }: Props) {
   const router = useRouter()
   const t = useTranslations('guest.nav')
@@ -259,6 +284,20 @@ export function MenuManager({
                 )
               }
 
+              const staticKey =
+                item.kind === 'static' ? item.staticKey : undefined
+              const staticVisibility =
+                staticKey !== undefined
+                  ? staticVisibilityMap[staticKey]
+                  : undefined
+              const staticAssignedIds =
+                staticKey !== undefined
+                  ? staticAssignmentsByKey[staticKey] ?? []
+                  : []
+              const screenEligibleStatic =
+                staticKey !== undefined &&
+                SCREEN_ELIGIBLE_STATIC_KEYS.has(staticKey)
+
               return (
                 <React.Fragment key={item.key}>
                   <SectionLabel index={index} />
@@ -291,8 +330,10 @@ export function MenuManager({
                     assignedScreenIds={
                       item.kind === 'page' && item.pageId
                         ? assignmentsByPageId[item.pageId] ?? []
-                        : []
+                        : staticAssignedIds
                     }
+                    staticVisibility={staticVisibility}
+                    screenEligibleStatic={screenEligibleStatic}
                   />
                 </React.Fragment>
               )
@@ -368,6 +409,10 @@ interface SortableRowProps {
   onError: (message: string) => void
   screens: ScreenInfo[]
   assignedScreenIds: string[]
+  /** Static-only: current visibility record (or undefined when never set). */
+  staticVisibility?: StaticItemVisibility
+  /** Static-only: whether this key is eligible for screen-toggle. */
+  screenEligibleStatic?: boolean
 }
 
 function SortableRow({
@@ -385,6 +430,8 @@ function SortableRow({
   onError,
   screens,
   assignedScreenIds,
+  staticVisibility,
+  screenEligibleStatic,
 }: SortableRowProps) {
   const {
     attributes,
@@ -406,6 +453,13 @@ function SortableRow({
   const isPage = item.kind === 'page'
   const label = isPage ? item.pageTitle ?? '(uden titel)' : staticLabel ?? ''
   const dragLabel = `Træk for at flytte ${label}`
+
+  // Static-row visibility flags. When no record exists yet, treat as fully
+  // visible — matches the server-side `isStaticItemVisibleNow` default.
+  const staticIsActive = staticVisibility ? staticVisibility.is_active : true
+  const staticVisibleFrom = staticVisibility?.visible_from ?? null
+  const staticVisibleUntil = staticVisibility?.visible_until ?? null
+  const staticHasMeta = Boolean(staticVisibility)
 
   return (
     <li
@@ -458,7 +512,8 @@ function SortableRow({
             <span
               className={
                 'text-sm font-medium ' +
-                (isPage && item.pageIsActive === false
+                ((isPage && item.pageIsActive === false) ||
+                (!isPage && !staticIsActive)
                   ? 'text-muted-foreground line-through'
                   : '')
               }
@@ -477,7 +532,14 @@ function SortableRow({
               </>
             )}
 
-            {!isPage && (
+            {/*
+              "Indbygget" badge: keep it ONLY when the static row has no
+              custom visibility record. Once an admin has configured the
+              window, the EyeOff/Clock badges (and the Synlig fra/indtil
+              line) carry the signal and the static-vs-dynamic distinction
+              is no longer interesting at a glance.
+            */}
+            {!isPage && !staticHasMeta && (
               <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 Indbygget
               </span>
@@ -504,6 +566,15 @@ function SortableRow({
                 <Clock className="h-3.5 w-3.5" />
               </span>
             )}
+            {!isPage && (
+              <VisibilityBadges
+                is_active={staticIsActive}
+                visible_from={staticVisibleFrom}
+                visible_until={staticVisibleUntil}
+                hiddenInactiveTooltip={hiddenInactiveTooltip}
+                hiddenWindowTooltip={hiddenWindowTooltip}
+              />
+            )}
           </div>
 
           {isPage && (item.pageVisibleFrom || item.pageVisibleUntil) && (
@@ -515,13 +586,40 @@ function SortableRow({
               )}
             </p>
           )}
+
+          {!isPage && (staticVisibleFrom || staticVisibleUntil) && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {staticVisibleFrom && <>Fra {formatDate(staticVisibleFrom)}</>}
+              {staticVisibleFrom && staticVisibleUntil && ' — '}
+              {staticVisibleUntil && (
+                <>Indtil {formatDate(staticVisibleUntil)}</>
+              )}
+            </p>
+          )}
+
+          {!isPage && item.staticKey && (
+            <div className="mt-2">
+              <StaticItemVisibilityControls
+                staticKey={item.staticKey}
+                initial={{
+                  is_active: staticIsActive,
+                  visible_from: staticVisibleFrom,
+                  visible_until: staticVisibleUntil,
+                }}
+                onError={onError}
+              />
+            </div>
+          )}
         </div>
 
         {isPage && item.pageId && (
           <div className="flex items-center gap-1 shrink-0">
             <ScreenAssignmentToggle
-              pageId={item.pageId}
-              pageLabel={label}
+              subject={{
+                kind: 'page',
+                pageId: item.pageId,
+                pageLabel: label,
+              }}
               screens={screens}
               assignedScreenIds={assignedScreenIds}
               onError={onError}
@@ -547,6 +645,22 @@ function SortableRow({
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
+          </div>
+        )}
+
+        {!isPage && item.staticKey && screenEligibleStatic && (
+          <div className="flex items-center gap-1 shrink-0">
+            <ScreenAssignmentToggle
+              subject={{
+                kind: 'static',
+                staticKey: item.staticKey,
+                staticLabel: label,
+              }}
+              screens={screens}
+              assignedScreenIds={assignedScreenIds}
+              onError={onError}
+              disabled={isPending}
+            />
           </div>
         )}
       </div>
