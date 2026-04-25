@@ -2,7 +2,11 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
-import { isPageVisibleNow } from '@/lib/guest/navItems'
+import { isPageVisibleNow, isStaticNavKey } from '@/lib/guest/navItems'
+import {
+  getStaticItemVisibilityMap,
+  type StaticItemVisibility,
+} from '@/lib/actions/staticItemVisibility'
 import type { PageSummary } from '@/lib/actions/pages'
 
 export type ScreenTransition = 'fade' | 'slide' | 'none'
@@ -19,9 +23,58 @@ export interface ScreenAssignment {
   page: PageSummary & { content: Record<string, unknown> | null }
 }
 
+/**
+ * Discriminated-union representation of a screen-assignment row in the
+ * polymorphic world (migration 011). A row is either a `'page'` referencing
+ * a dynamic admin-defined page, or a `'static'` referencing a built-in
+ * menu key (e.g. `'galleri'`, `'deltagere'`, `'hvor'`, `'tasks'`,
+ * `'program'`).
+ *
+ * Consumers:
+ *   - Wave 2 plan 08-05 (cycler refactor) — fetches mixed lists and renders
+ *     either a TipTap page or a dedicated static-view component per cycle
+ *     step.
+ *   - Wave 2 plan 08-03 (admin UI) — renders the assignment list with
+ *     per-kind row treatment.
+ */
+export type MixedAssignment =
+  | {
+      kind: 'page'
+      id: string
+      sort_order: number
+      page: PageSummary & { content: Record<string, unknown> | null }
+    }
+  | {
+      kind: 'static'
+      id: string
+      sort_order: number
+      static_key: string
+    }
+
 interface RawAssignmentRow {
   id: string
-  page_id: string
+  page_id: string | null
+  sort_order: number
+  pages:
+    | {
+        id: string
+        slug: string
+        title: string
+        content: Record<string, unknown> | null
+        is_active: boolean
+        visible_from: string | null
+        visible_until: string | null
+        sort_order: number
+        created_at: string
+      }
+    | null
+}
+
+interface RawMixedAssignmentRow {
+  id: string
+  kind: 'page' | 'static'
+  page_id: string | null
+  static_key: string | null
   sort_order: number
   pages:
     | {
@@ -41,8 +94,57 @@ interface RawAssignmentRow {
 const ASSIGNMENT_SELECT =
   'id, page_id, sort_order, pages (id, slug, title, content, is_active, visible_from, visible_until, sort_order, created_at)'
 
+const MIXED_ASSIGNMENT_SELECT =
+  'id, kind, page_id, static_key, sort_order, pages (id, slug, title, content, is_active, visible_from, visible_until, sort_order, created_at)'
+
+function rowToMixed(row: RawMixedAssignmentRow): MixedAssignment | null {
+  if (row.kind === 'page') {
+    if (!row.pages || !row.page_id) return null
+    return {
+      kind: 'page',
+      id: row.id,
+      sort_order: row.sort_order,
+      page: {
+        id: row.pages.id,
+        slug: row.pages.slug,
+        title: row.pages.title,
+        content: row.pages.content,
+        is_active: row.pages.is_active,
+        visible_from: row.pages.visible_from,
+        visible_until: row.pages.visible_until,
+        sort_order: row.pages.sort_order,
+        created_at: row.pages.created_at,
+      },
+    }
+  }
+  if (row.kind === 'static') {
+    if (!row.static_key) return null
+    return {
+      kind: 'static',
+      id: row.id,
+      sort_order: row.sort_order,
+      static_key: row.static_key,
+    }
+  }
+  return null
+}
+
+function isStaticVisibleNow(
+  staticKey: string,
+  map: Record<string, StaticItemVisibility>
+): boolean {
+  const entry = map[staticKey]
+  if (!entry) return true
+  return isPageVisibleNow({
+    is_active: entry.is_active,
+    visible_from: entry.visible_from,
+    visible_until: entry.visible_until,
+  })
+}
+
 function rowToAssignment(row: RawAssignmentRow): ScreenAssignment | null {
   if (!row.pages) return null
+  if (!row.page_id) return null
   return {
     id: row.id,
     page_id: row.page_id,
@@ -73,10 +175,13 @@ export async function getScreenAssignmentsAll(
   screenGuestId: string
 ): Promise<ScreenAssignment[]> {
   await assertAdmin()
+  // Audit (migration 011 / Plan 08-02): page-only — must filter `kind='page'`
+  // so static-key rows on the same table do not pollute the page list.
   const { data, error } = await supabaseServer
     .from('screen_page_assignments')
     .select(ASSIGNMENT_SELECT)
     .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'page')
     .order('sort_order')
   if (error) throw new Error('Failed to load screen assignments')
   const rows = (data ?? []) as unknown as RawAssignmentRow[]
@@ -94,9 +199,13 @@ export async function getAssignmentsMapByPage(): Promise<
   Record<string, string[]>
 > {
   await assertAdmin()
+  // Audit (migration 011 / Plan 08-02): page-only map — explicit
+  // `kind='page'` filter required so static rows (page_id IS NULL) cannot
+  // reach the loop and inject null-keyed bucket entries.
   const { data, error } = await supabaseServer
     .from('screen_page_assignments')
     .select('page_id, screen_guest_id')
+    .eq('kind', 'page')
   if (error) throw new Error('Failed to load assignments map')
 
   const out: Record<string, string[]> = {}
@@ -117,10 +226,15 @@ export async function getAssignmentsMapByPage(): Promise<
 export async function getRotationCountsForScreen(
   screenGuestId: string
 ): Promise<{ visible: number; hidden: number }> {
+  // Audit (migration 011 / Plan 08-02): existing UI shows page-rotation
+  // counts only — preserve that semantics with a `kind='page'` filter.
+  // Wave 2 plan 08-05 may add a separate mixed-counter helper if the cycle
+  // settings UI grows to surface static-item counts.
   const all = await supabaseServer
     .from('screen_page_assignments')
     .select(ASSIGNMENT_SELECT)
     .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'page')
   if (all.error) throw new Error('Failed to load assignments for rotation count')
 
   const rows = (all.data ?? []) as unknown as RawAssignmentRow[]
@@ -141,9 +255,14 @@ export async function getRotationCountsForScreen(
 
 /**
  * Lightweight existence check — does the screen have ANY assignments,
- * regardless of visibility? Used by the screen render path to decide
- * "pages mode" vs "fall through to override/gallery". Cheaper than
+ * regardless of visibility OR kind? Used by the screen render path to
+ * decide "cycle mode" vs "fall through to override/gallery". Cheaper than
  * fetching the full join.
+ *
+ * Audit (migration 011 / Plan 08-02): intentionally NO `kind` filter — the
+ * plan documents "existing callers expect 'any cycle items'", so static
+ * assignments must count too. Otherwise a screen with only static
+ * assignments would fall through to the gallery default.
  */
 export async function hasAnyScreenAssignments(
   screenGuestId: string
@@ -165,10 +284,15 @@ export async function hasAnyScreenAssignments(
 export async function getVisibleScreenAssignments(
   screenGuestId: string
 ): Promise<ScreenAssignment[]> {
+  // Audit (migration 011 / Plan 08-02): page-only — existing callers
+  // (ScreenPageCycle realtime refetch, single-page render path) expect
+  // page rows. Static rows are surfaced via `getVisibleScreenAssignmentsMixed`
+  // which is consumed by the new cycler refactor in Wave 2 plan 08-05.
   const { data, error } = await supabaseServer
     .from('screen_page_assignments')
     .select(ASSIGNMENT_SELECT)
     .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'page')
     .order('sort_order')
   if (error) throw new Error('Failed to load screen assignments')
   const rows = (data ?? []) as unknown as RawAssignmentRow[]
@@ -207,11 +331,16 @@ export async function addPageToScreen(
       ? (maxRow as { sort_order: number }).sort_order + 1
       : 0
 
+  // Audit (migration 011 / Plan 08-02): explicit `kind: 'page'` on insert.
+  // The column has a default of `'page'` from the migration, so this is
+  // defensive — but it makes intent explicit and survives a future change
+  // to the default.
   const { error } = await supabaseServer
     .from('screen_page_assignments')
     .insert({
       screen_guest_id: screenGuestId,
       page_id: pageId,
+      kind: 'page',
       sort_order: nextSort,
     })
   if (error) {
@@ -231,10 +360,16 @@ export async function removePageFromScreen(
 ): Promise<void> {
   await assertAdmin()
 
+  // Audit (migration 011 / Plan 08-02): scope delete to `kind='page'`.
+  // page_id is now nullable; without this filter the query would still
+  // match correctly because we also `.eq('page_id', pageId)` and static
+  // rows have NULL page_id (NULL never equals a non-null string). The
+  // explicit filter is defensive and makes intent clear.
   const { error } = await supabaseServer
     .from('screen_page_assignments')
     .delete()
     .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'page')
     .eq('page_id', pageId)
   if (error) throw new Error('Failed to remove page from screen')
 
@@ -253,10 +388,15 @@ export async function reorderScreenAssignments(
 ): Promise<void> {
   await assertAdmin()
 
+  // Audit (migration 011 / Plan 08-02): page-only — `orderedPageIds` is
+  // a list of page UUIDs, so filter to `kind='page'` rows. Static rows
+  // get their own reorder helper if/when a Wave 2 plan adds one; today
+  // they are appended in insertion order via `addStaticItemToScreen`.
   const { data: existing, error: existErr } = await supabaseServer
     .from('screen_page_assignments')
     .select('page_id')
     .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'page')
   if (existErr) throw new Error('Failed to load current assignments')
 
   const existingIds = new Set(
@@ -279,6 +419,7 @@ export async function reorderScreenAssignments(
       .from('screen_page_assignments')
       .update({ sort_order: i })
       .eq('screen_guest_id', screenGuestId)
+      .eq('kind', 'page')
       .eq('page_id', pageId)
     if (error) throw new Error('Failed to reorder assignments')
   }
@@ -367,4 +508,207 @@ export async function updateScreenCycleSettings(
 
   revalidatePath('/admin/sider')
   revalidatePath(`/admin/deltagere/${screenGuestId}/rediger`)
+}
+
+// =============================================================================
+// Polymorphic / mixed-assignment surface (migration 011 / Plan 08-02)
+// =============================================================================
+//
+// The exports below extend the existing page-only API with first-class
+// support for static-key assignments (Galleri, Deltagere, Hvor, Opgaver,
+// Program). Wave 2 plans 08-03 (admin UI) and 08-05 (cycler refactor) consume
+// these.
+//
+// Existing exports above remain page-only (filtered to `kind='page'`) so
+// that pre-existing call sites — `ScreenPageCycle`, the `/sider` admin page,
+// `GuestForm`, `ScreenAssignmentToggle`, `ScreenCycleSettings`, etc. — keep
+// the exact behavior they had pre-migration. New consumers MUST use the
+// `*Mixed` helpers.
+
+/**
+ * Append a static menu item to a screen's cycle. Static rows live on the
+ * SAME polymorphic table as page assignments (migration 011) so a single
+ * sort_order space lets admins interleave pages and static views in any
+ * order.
+ *
+ * Validation: `staticKey` must be in `STATIC_NAV_KEYS`. Unknown keys are
+ * rejected at the action layer so the database never sees garbage.
+ *
+ * Idempotency: protected by `spa_unique_screen_static` partial-unique
+ * index. Re-adding an already-assigned static key is a no-op.
+ *
+ * Sort order: takes the next slot after the current max across BOTH kinds
+ * for the screen, so a freshly-added static item appears at the END of the
+ * cycle by default. Reordering is a Wave 2 admin-UI concern.
+ */
+export async function addStaticItemToScreen(
+  screenGuestId: string,
+  staticKey: string
+): Promise<void> {
+  await assertAdmin()
+
+  if (!isStaticNavKey(staticKey)) {
+    throw new Error(`Ukendt statisk nøgle: ${staticKey}`)
+  }
+
+  const { data: maxRow, error: maxErr } = await supabaseServer
+    .from('screen_page_assignments')
+    .select('sort_order')
+    .eq('screen_guest_id', screenGuestId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (maxErr) throw new Error('Failed to determine next sort_order')
+  const nextSort =
+    maxRow && typeof (maxRow as { sort_order: number }).sort_order === 'number'
+      ? (maxRow as { sort_order: number }).sort_order + 1
+      : 0
+
+  const { error } = await supabaseServer
+    .from('screen_page_assignments')
+    .insert({
+      screen_guest_id: screenGuestId,
+      kind: 'static',
+      static_key: staticKey,
+      page_id: null,
+      sort_order: nextSort,
+    })
+  if (error) {
+    // Unique violation = static key already assigned for this screen;
+    // treat as idempotent.
+    if (!/duplicate key|unique/i.test(error.message)) {
+      throw new Error('Failed to add static item to screen')
+    }
+  }
+
+  revalidatePath('/admin/sider')
+}
+
+/**
+ * Remove a static menu item from a screen's cycle. Idempotent — a missing
+ * row produces a no-op delete.
+ *
+ * Validation: rejects unknown static keys at the action layer.
+ */
+export async function removeStaticItemFromScreen(
+  screenGuestId: string,
+  staticKey: string
+): Promise<void> {
+  await assertAdmin()
+
+  if (!isStaticNavKey(staticKey)) {
+    throw new Error(`Ukendt statisk nøgle: ${staticKey}`)
+  }
+
+  const { error } = await supabaseServer
+    .from('screen_page_assignments')
+    .delete()
+    .eq('screen_guest_id', screenGuestId)
+    .eq('kind', 'static')
+    .eq('static_key', staticKey)
+  if (error) throw new Error('Failed to remove static item from screen')
+
+  revalidatePath('/admin/sider')
+}
+
+/**
+ * All assignments for a screen (page + static), ordered by sort_order.
+ * Includes inactive / windowed-out items — admin UI uses this to render
+ * the assignment list with status badges across both kinds.
+ *
+ * Caller must hold admin cookie. The screen render path uses
+ * `getVisibleScreenAssignmentsMixed` instead.
+ */
+export async function getScreenAssignmentsMixed(
+  screenGuestId: string
+): Promise<MixedAssignment[]> {
+  await assertAdmin()
+  const { data, error } = await supabaseServer
+    .from('screen_page_assignments')
+    .select(MIXED_ASSIGNMENT_SELECT)
+    .eq('screen_guest_id', screenGuestId)
+    .order('sort_order')
+  if (error) throw new Error('Failed to load mixed screen assignments')
+  const rows = (data ?? []) as unknown as RawMixedAssignmentRow[]
+  return rows
+    .map(rowToMixed)
+    .filter((a): a is MixedAssignment => a !== null)
+}
+
+/**
+ * Currently-visible mixed assignments for a screen, ordered by sort_order.
+ * Used by the screen render path (Wave 2 plan 08-05's cycler refactor).
+ *
+ * Visibility filtering:
+ *   - `kind='page'` rows: filtered by `isPageVisibleNow(page)`, identical to
+ *     the existing `getVisibleScreenAssignments` semantics.
+ *   - `kind='static'` rows: filtered by the static-item visibility map
+ *     (Plan 08-01's `getStaticItemVisibilityMap`). Static keys with no
+ *     visibility record are treated as fully visible (preserves the
+ *     "absence == visible" default the visibility table is built around).
+ *
+ * Note: this is NOT admin-gated — the screen render path runs without an
+ * admin cookie. Mirrors `getVisibleScreenAssignments`.
+ */
+export async function getVisibleScreenAssignmentsMixed(
+  screenGuestId: string
+): Promise<MixedAssignment[]> {
+  // Fetch assignments and visibility map in parallel — they're independent
+  // queries against different tables.
+  const [{ data, error }, staticVisibility] = await Promise.all([
+    supabaseServer
+      .from('screen_page_assignments')
+      .select(MIXED_ASSIGNMENT_SELECT)
+      .eq('screen_guest_id', screenGuestId)
+      .order('sort_order'),
+    getStaticItemVisibilityMap(),
+  ])
+  if (error) throw new Error('Failed to load mixed screen assignments')
+
+  const rows = (data ?? []) as unknown as RawMixedAssignmentRow[]
+  const mapped = rows
+    .map(rowToMixed)
+    .filter((a): a is MixedAssignment => a !== null)
+
+  return mapped.filter((a) => {
+    if (a.kind === 'page') {
+      return isPageVisibleNow({
+        is_active: a.page.is_active,
+        visible_from: a.page.visible_from,
+        visible_until: a.page.visible_until,
+      })
+    }
+    return isStaticVisibleNow(a.static_key, staticVisibility)
+  })
+}
+
+/**
+ * Admin helper, mirrors `getAssignmentsMapByPage` for the static-row
+ * universe. Returns `{ static_key: [screen_guest_id, ...] }` so the
+ * `/admin/sider` page can render which screens have a given static item
+ * assigned without N+1 queries.
+ *
+ * Admin-gated.
+ */
+export async function getStaticAssignmentsMapByKey(): Promise<
+  Record<string, string[]>
+> {
+  await assertAdmin()
+  const { data, error } = await supabaseServer
+    .from('screen_page_assignments')
+    .select('static_key, screen_guest_id')
+    .eq('kind', 'static')
+  if (error) throw new Error('Failed to load static assignments map')
+
+  const out: Record<string, string[]> = {}
+  for (const row of (data ?? []) as {
+    static_key: string | null
+    screen_guest_id: string
+  }[]) {
+    if (!row.static_key) continue
+    const list = out[row.static_key] ?? []
+    list.push(row.screen_guest_id)
+    out[row.static_key] = list
+  }
+  return out
 }
