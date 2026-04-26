@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverActions: {
+      // Largest upload path is admin invitation (25 MB cap in
+      // information.ts#uploadInvitation). 30 MB gives multipart-overhead headroom.
+      bodySizeLimit: '30mb',
+    },
+  },
 }
 
 export default withNextIntl(nextConfig)
