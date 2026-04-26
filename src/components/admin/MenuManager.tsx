@@ -614,17 +614,6 @@ function SortableRow({
 
         {isPage && item.pageId && (
           <div className="flex items-center gap-1 shrink-0">
-            <ScreenAssignmentToggle
-              subject={{
-                kind: 'page',
-                pageId: item.pageId,
-                pageLabel: label,
-              }}
-              screens={screens}
-              assignedScreenIds={assignedScreenIds}
-              onError={onError}
-              disabled={isPending}
-            />
             <Button
               type="button"
               variant="ghost"
@@ -645,6 +634,17 @@ function SortableRow({
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
+            <ScreenAssignmentToggle
+              subject={{
+                kind: 'page',
+                pageId: item.pageId,
+                pageLabel: label,
+              }}
+              screens={screens}
+              assignedScreenIds={assignedScreenIds}
+              onError={onError}
+              disabled={isPending}
+            />
           </div>
         )}
 

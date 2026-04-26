@@ -277,8 +277,18 @@ export function ScreenPageCycle({
     return <div className="h-screen w-screen bg-black" />
   }
 
-  const current = items[currentIndex]
-  const previous = previousIndex !== null ? items[previousIndex] : null
+  // Bounds-clamp during render: when admin removes assignments, realtime
+  // refetch shrinks `items` BEFORE the index-reset effect runs (effects
+  // fire after commit). `items[currentIndex]` would be undefined for that
+  // single render and crash CycleItemView. Clamp here so the render is
+  // safe; the reset effect catches up on the next tick.
+  const safeCurrentIndex =
+    currentIndex < items.length ? currentIndex : items.length - 1
+  const current = items[safeCurrentIndex]
+  const previous =
+    previousIndex !== null && previousIndex < items.length
+      ? items[previousIndex]
+      : null
 
   // Style maps for entering and exiting layers per transition mode.
   // We use absolute positioning + double-render so the layers cross-fade
