@@ -1,10 +1,7 @@
 'use client'
-// NOTE: Requires Supabase Storage bucket 'invitations' to be created manually:
-// Supabase Dashboard → Storage → New bucket → name: "invitations", public: true
 
 import { useRef, useState, useTransition } from 'react'
-import { supabaseClient } from '@/lib/supabase/client'
-import { updateInvitationUrl } from '@/lib/actions/information'
+import { uploadInvitation } from '@/lib/actions/information'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
@@ -17,26 +14,17 @@ export function InvitationUpload({ currentUrl }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  async function handleUpload(file: File) {
+  function handleUpload(file: File) {
     setError(null)
-    const timestamp = Date.now()
-    const path = `${timestamp}-${file.name}`
-
-    const { error: uploadError } = await supabaseClient.storage
-      .from('invitations')
-      .upload(path, file, { upsert: false })
-
-    if (uploadError) {
-      setError(`Upload fejlede: ${uploadError.message}`)
-      return
-    }
-
-    const { data: urlData } = supabaseClient.storage
-      .from('invitations')
-      .getPublicUrl(path)
+    const formData = new FormData()
+    formData.append('file', file)
 
     startTransition(async () => {
-      await updateInvitationUrl(urlData.publicUrl)
+      try {
+        await uploadInvitation(formData)
+      } catch (err) {
+        setError(`Upload fejlede: ${err instanceof Error ? err.message : 'Ukendt fejl'}`)
+      }
     })
   }
 

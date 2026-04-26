@@ -1,10 +1,7 @@
 'use client'
-// NOTE: Map image upload requires Supabase Storage bucket 'maps':
-// Supabase Dashboard → Storage → New bucket → name: "maps", public: true
 
 import { useRef, useState, useTransition } from 'react'
-import { supabaseClient } from '@/lib/supabase/client'
-import { createEvent, updateEvent } from '@/lib/actions/information'
+import { createEvent, updateEvent, uploadMapImage } from '@/lib/actions/information'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,18 +44,12 @@ export function EventForm({ eventId, initialData, onDone }: Props) {
     setMapUploadError(null)
     setIsUploading(true)
     try {
-      const path = `${Date.now()}-${file.name}`
-      const { error: uploadError } = await supabaseClient.storage
-        .from('maps')
-        .upload(path, file, { upsert: false })
-
-      if (uploadError) {
-        setMapUploadError(`Upload fejlede: ${uploadError.message}`)
-        return
-      }
-
-      const { data: urlData } = supabaseClient.storage.from('maps').getPublicUrl(path)
-      setMapImageUrl(urlData.publicUrl)
+      const formData = new FormData()
+      formData.append('file', file)
+      const publicUrl = await uploadMapImage(formData)
+      setMapImageUrl(publicUrl)
+    } catch (err) {
+      setMapUploadError(`Upload fejlede: ${err instanceof Error ? err.message : 'Ukendt fejl'}`)
     } finally {
       setIsUploading(false)
     }

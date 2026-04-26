@@ -1,5 +1,5 @@
 'use server'
-import { supabaseServer } from '@/lib/supabase/server'
+import { putR2Object, deleteR2ObjectByUrl, r2PublicUrl } from './r2'
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
@@ -49,8 +49,20 @@ export interface UploadResult {
   path: string
 }
 
+/**
+ * Uploads a guest-provided image to R2 under the `images/` prefix.
+ *
+ * Magic-byte verification is preserved unchanged: the extension is derived from
+ * the verified signature, never from `file.name`.
+ *
+ * The `opts.prefix` parameter is retained for call-site stability and logging
+ * intent ('photo' vs 'memory'), but no longer affects the object key. The new
+ * key scheme is `images/${uuid}.${ext}` — no `original/` subfolder, no
+ * `photo-` / `memory-` infix.
+ */
 export async function uploadImage(
   file: File,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- informational only; kept to avoid touching call sites
   opts: { prefix: 'photo' | 'memory' }
 ): Promise<UploadResult> {
   if (file.size > MAX_BYTES) throw new Error('Filen er for stor (maks 10 MB)')
@@ -60,26 +72,25 @@ export async function uploadImage(
   const sig = SIGNATURES.find((s) => s.match(headBytes))
   if (!sig) throw new Error('Filtype ikke understøttet')
 
-  const id = crypto.randomUUID()
-  const path = `original/${opts.prefix}-${id}.${sig.ext}`
+  const id = `${crypto.randomUUID()}.${sig.ext}`
+  const path = `images/${id}`
 
-  const { error } = await supabaseServer.storage
-    .from('images')
-    .upload(path, file, { contentType: sig.contentType, upsert: false })
-  if (error) throw new Error('Upload fejlede')
+  const body = Buffer.from(await file.arrayBuffer())
+  try {
+    await putR2Object({
+      prefix: 'images',
+      id,
+      body,
+      contentType: sig.contentType,
+    })
+  } catch {
+    throw new Error('Upload fejlede')
+  }
 
-  const { data } = supabaseServer.storage.from('images').getPublicUrl(path)
-  return { storage_url: data.publicUrl, path }
+  return { storage_url: r2PublicUrl('images', id), path }
 }
 
 export async function deleteStorageObjectByUrl(storage_url: string): Promise<void> {
-  try {
-    const marker = '/object/public/images/'
-    const i = storage_url.indexOf(marker)
-    if (i < 0) return
-    const path = storage_url.slice(i + marker.length)
-    await supabaseServer.storage.from('images').remove([path])
-  } catch {
-    // Best-effort — DB row already deleted
-  }
+  // Best-effort — DB row already deleted. r2.ts swallows errors internally.
+  await deleteR2ObjectByUrl(storage_url)
 }
