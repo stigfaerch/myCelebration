@@ -9,6 +9,15 @@ import {
   type MemoryType,
   type MyMemory,
 } from '@/lib/actions/guest/memories'
+import { getR2UploadUrl } from '@/lib/storage/r2-presign'
+
+const ALLOWED_UPLOAD_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
+])
 
 interface Props {
   memory?: MyMemory | null
@@ -58,16 +67,41 @@ export function MemoryForm({ memory, onSave, onCancel }: Props) {
       return
     }
 
-    const formData = new FormData()
-    formData.append('title', trimmedTitle)
-    formData.append('type', type)
-    formData.append('description', description.trim())
-    formData.append('when_date', whenDate.trim())
-    if (file) formData.append('file', file)
-    if (memory && removeImage) formData.append('removeImage', 'true')
-
     startTransition(async () => {
       try {
+        let imageUrl: string | null = null
+
+        // If the user picked a file, upload it browser→R2 via presigned URL
+        // BEFORE invoking the create/update server action. This bypasses the
+        // Vercel function body cap (~4.5 MB).
+        if (file) {
+          const contentType = file.type
+          if (!ALLOWED_UPLOAD_TYPES.has(contentType)) {
+            throw new Error('Filtype ikke understøttet')
+          }
+          const id = crypto.randomUUID()
+          const { url, publicUrl } = await getR2UploadUrl({
+            prefix: 'images',
+            id,
+            contentType,
+          })
+          const putResp = await fetch(url, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': contentType },
+          })
+          if (!putResp.ok) throw new Error('Upload fejlede')
+          imageUrl = publicUrl
+        }
+
+        const formData = new FormData()
+        formData.append('title', trimmedTitle)
+        formData.append('type', type)
+        formData.append('description', description.trim())
+        formData.append('when_date', whenDate.trim())
+        if (imageUrl) formData.append('image_url', imageUrl)
+        if (memory && removeImage) formData.append('removeImage', 'true')
+
         if (memory) {
           await updateMemory(memory.id, formData)
         } else {

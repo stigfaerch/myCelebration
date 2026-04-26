@@ -3,7 +3,8 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Circle } from 'lucide-react'
-import { createPhotoFromFile } from '@/lib/actions/guest/photos'
+import { confirmPhotoUpload } from '@/lib/actions/guest/photos'
+import { getR2UploadUrl } from '@/lib/storage/r2-presign'
 
 interface Props {
   uuid: string
@@ -95,12 +96,29 @@ export function Camera({ uuid }: Props) {
           return
         }
         const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' })
-        const formData = new FormData()
-        formData.append('file', file)
 
         startTransition(async () => {
           try {
-            await createPhotoFromFile(formData)
+            // 1) Ask the server to mint a presigned PUT URL.
+            const id = crypto.randomUUID()
+            const { url, publicUrl } = await getR2UploadUrl({
+              prefix: 'images',
+              id,
+              contentType: 'image/jpeg',
+            })
+
+            // 2) PUT the bytes browser→R2 directly. Bypasses the Vercel
+            //    function body limit (~4.5 MB).
+            const putResp = await fetch(url, {
+              method: 'PUT',
+              body: file,
+              headers: { 'Content-Type': 'image/jpeg' },
+            })
+            if (!putResp.ok) throw new Error('Upload fejlede')
+
+            // 3) Tell the server the bytes landed; it inserts the DB row.
+            await confirmPhotoUpload({ publicUrl })
+
             setShowSavedToast(true)
             if (navTimerRef.current) clearTimeout(navTimerRef.current)
             navTimerRef.current = setTimeout(() => {

@@ -51,6 +51,45 @@ cryptographically random, so URLs are unguessable but once forwarded they're
 viewable indefinitely). This is an accepted v1 trade-off for a private
 family-event URL. See section 9 for the hardening follow-up.
 
+## 3a. R2 Bucket CORS
+
+The guest camera + memory image flows upload **directly from the browser to
+R2** via presigned PUT URLs. This bypasses Vercel's ~4.5 MB function body cap
+(otherwise users hit `FUNCTION_PAYLOAD_TOO_LARGE` on photos > 4.5 MB). The
+admin invitation PDF and event map image flows still go through the
+server-side `putR2Object` path; those files are small and rare so the body
+cap is not a concern.
+
+Browser-to-R2 PUT requires CORS on the R2 bucket. Configure once via
+**Cloudflare dashboard → R2 → bucket → Settings → CORS Policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://your-vercel-deployment.vercel.app",
+      "https://yourcelebration.dk"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+- Replace the origins with your real Vercel preview/production URLs.
+- Keep `http://localhost:3000` while developing locally; remove it before
+  treating CORS as production-final if you want strict origin enforcement.
+- The `pub-<hash>.r2.dev` public URL is for **reading** objects (GET); CORS
+  controls **writing** (PUT). Both must be configured for the upload flow to
+  work end-to-end.
+
+**Symptom of missing CORS:** `getR2UploadUrl` returns a URL successfully, but
+the subsequent browser `fetch(url, { method: 'PUT' })` fails with a CORS
+error in DevTools and no useful message in Vercel server logs. If the
+camera "Gem!" toast never appears, check the browser console first.
+
 ## 4. Environment Variables
 
 Configure both locally (`.env.local`) **and** in Vercel (**Project Settings →

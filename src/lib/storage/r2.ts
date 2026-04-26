@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 // Read R2 config eagerly at module load. Fail fast at boot if anything is missing,
 // rather than silently failing on the first upload request.
@@ -65,6 +66,48 @@ export async function putR2Object({
     })
   )
   return r2PublicUrl(prefix, id)
+}
+
+export interface PresignR2UploadInput {
+  prefix: R2Prefix
+  id: string
+  contentType: string
+  expiresIn?: number
+}
+
+export interface PresignR2UploadResult {
+  url: string
+  publicUrl: string
+  key: string
+}
+
+/**
+ * Generate a presigned PUT URL for browser-to-R2 direct uploads. Used to
+ * bypass Vercel's ~4.5 MB function body cap by routing the file bytes
+ * directly from the browser to R2.
+ *
+ * Caller MUST run auth + content-type allowlisting + id validation BEFORE
+ * invoking this function — this is a primitive that signs whatever it is
+ * told to sign.
+ */
+export async function presignR2Upload({
+  prefix,
+  id,
+  contentType,
+  expiresIn = 300,
+}: PresignR2UploadInput): Promise<PresignR2UploadResult> {
+  const Key = `${prefix}/${id}`
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key,
+    ContentType: contentType,
+  })
+  const url = await getSignedUrl(r2Client, command, { expiresIn })
+  return {
+    url,
+    publicUrl: r2PublicUrl(prefix, id),
+    key: Key,
+  }
 }
 
 /**

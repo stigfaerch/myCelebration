@@ -2,7 +2,8 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { resolveGuest, assertNotScreen } from '@/lib/auth/resolveGuest'
-import { uploadImage, deleteStorageObjectByUrl } from '@/lib/storage/upload'
+import { deleteStorageObjectByUrl } from '@/lib/storage/upload'
+import { r2PublicUrl } from '@/lib/storage/r2'
 
 export type MemoryType = 'funny' | 'solemn' | 'everyday' | 'milestone'
 
@@ -45,6 +46,18 @@ export async function getMyMemories(): Promise<MyMemory[]> {
   return (data ?? []) as MyMemory[]
 }
 
+/**
+ * Validates that an `image_url` came from our R2 bucket under the `images/`
+ * prefix. We never trust an arbitrary URL from the client, since that would
+ * let a malicious caller insert DB rows pointing anywhere.
+ */
+function assertOwnedR2ImageUrl(url: string): void {
+  const expectedPrefix = `${r2PublicUrl('images', '')}`
+  if (!url.startsWith(expectedPrefix)) {
+    throw new Error('Ugyldig billede-URL')
+  }
+}
+
 export async function createMemory(formData: FormData): Promise<void> {
   const guest = await assertNotScreen()
 
@@ -54,12 +67,12 @@ export async function createMemory(formData: FormData): Promise<void> {
   const description = str(formData.get('description')) || null
   const when_date = str(formData.get('when_date')) || null
 
-  let image_url: string | null = null
-  const file = formData.get('file')
-  if (file instanceof File && file.size > 0) {
-    const uploaded = await uploadImage(file, { prefix: 'memory' })
-    image_url = uploaded.storage_url
-  }
+  // Image URL (if any) was uploaded via presign before submitting this form.
+  // The client validates the file then PUTs directly to R2; we only get the
+  // resulting public URL here.
+  const rawImageUrl = str(formData.get('image_url'))
+  const image_url: string | null = rawImageUrl || null
+  if (image_url) assertOwnedR2ImageUrl(image_url)
 
   const { error } = await supabaseServer.from('memories').insert({
     guest_id: guest.id,
@@ -69,7 +82,12 @@ export async function createMemory(formData: FormData): Promise<void> {
     when_date,
     image_url,
   })
-  if (error) throw new Error('Failed to create memory')
+  if (error) {
+    // Best-effort orphan cleanup if a presigned upload landed but the DB
+    // insert failed — avoids leaving bytes in R2 with no DB row.
+    if (image_url) await deleteStorageObjectByUrl(image_url)
+    throw new Error('Failed to create memory')
+  }
 
   revalidatePath(`/${guest.id}/minder`)
 }
@@ -96,15 +114,15 @@ export async function updateMemory(id: string, formData: FormData): Promise<void
   const when_date = str(formData.get('when_date')) || null
 
   const removeImage = formData.get('removeImage') === 'true'
-  const file = formData.get('file')
-  const hasNewFile = file instanceof File && file.size > 0
+  // New image URL (if any) was uploaded via presign before submitting.
+  const newImageUrl = str(formData.get('image_url')) || null
+  if (newImageUrl) assertOwnedR2ImageUrl(newImageUrl)
 
   let nextImageUrl: string | null = existingImageUrl
   let urlToDelete: string | null = null
 
-  if (hasNewFile) {
-    const uploaded = await uploadImage(file as File, { prefix: 'memory' })
-    nextImageUrl = uploaded.storage_url
+  if (newImageUrl) {
+    nextImageUrl = newImageUrl
     if (existingImageUrl) urlToDelete = existingImageUrl
   } else if (removeImage && existingImageUrl) {
     nextImageUrl = null
@@ -122,7 +140,12 @@ export async function updateMemory(id: string, formData: FormData): Promise<void
     })
     .eq('id', id)
     .eq('guest_id', guest.id)
-  if (error) throw new Error('Failed to update memory')
+  if (error) {
+    // If a fresh image was uploaded but the row update failed, the new
+    // object is orphaned — best-effort delete it.
+    if (newImageUrl) await deleteStorageObjectByUrl(newImageUrl)
+    throw new Error('Failed to update memory')
+  }
 
   if (urlToDelete) await deleteStorageObjectByUrl(urlToDelete)
 
