@@ -1,13 +1,14 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Trash2, Monitor } from 'lucide-react'
+import { Eye, EyeOff, Heart, Trash2, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   getPhotos,
   togglePhotoActive,
+  togglePhotoFavorite,
   deletePhoto,
   type Photo,
 } from '@/lib/actions/photos'
@@ -42,6 +43,7 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
   const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
   const [filterAfter, setFilterAfter] = useState('')
   const [filterBefore, setFilterBefore] = useState('')
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -52,6 +54,7 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
         const filtered = await getPhotos({
           after: fromDatetimeLocal(filterAfter),
           before: fromDatetimeLocal(filterBefore),
+          is_favorite: favoritesOnly ? true : null,
         })
         setPhotos(filtered)
       } catch (err) {
@@ -63,12 +66,66 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
   function clearFilters() {
     setFilterAfter('')
     setFilterBefore('')
+    setFavoritesOnly(false)
     setActionError(null)
     startTransition(async () => {
       try {
         const all = await getPhotos()
         setPhotos(all)
       } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
+  }
+
+  function handleToggleFavoritesFilter(next: boolean) {
+    setFavoritesOnly(next)
+    setActionError(null)
+    startTransition(async () => {
+      try {
+        const filtered = await getPhotos({
+          after: fromDatetimeLocal(filterAfter),
+          before: fromDatetimeLocal(filterBefore),
+          is_favorite: next ? true : null,
+        })
+        setPhotos(filtered)
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
+  }
+
+  function handleToggleFavorite(photo: Photo) {
+    setActionError(null)
+    const nextFavorite = !photo.is_favorite
+    setPhotos((prev) => {
+      const updated = prev.map((p) =>
+        p.id === photo.id ? { ...p, is_favorite: nextFavorite } : p
+      )
+      // If filtering to favorites only and the user just unfavorited this row,
+      // drop it from the visible list so the filter stays consistent.
+      if (favoritesOnly && !nextFavorite) {
+        return updated.filter((p) => p.id !== photo.id)
+      }
+      return updated
+    })
+    startTransition(async () => {
+      try {
+        await togglePhotoFavorite(photo.id, nextFavorite)
+      } catch (err) {
+        // Revert: re-add if filtered out, and restore previous favorite state.
+        setPhotos((prev) => {
+          const exists = prev.some((p) => p.id === photo.id)
+          if (!exists) {
+            return [...prev, { ...photo, is_favorite: photo.is_favorite }].sort(
+              (a, b) =>
+                new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime()
+            )
+          }
+          return prev.map((p) =>
+            p.id === photo.id ? { ...p, is_favorite: photo.is_favorite } : p
+          )
+        })
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
     })
@@ -192,6 +249,16 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
         >
           Nulstil
         </Button>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none ml-auto">
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(e) => handleToggleFavoritesFilter(e.target.checked)}
+            disabled={isPending}
+            className="h-4 w-4 rounded border-input"
+          />
+          Kun favoritter
+        </label>
       </div>
 
       {photos.length === 0 ? (
@@ -231,6 +298,24 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
                   </span>
                 </div>
                 <div className="flex items-center justify-end gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => handleToggleFavorite(photo)}
+                    aria-label={photo.is_favorite ? 'Fjern favorit' : 'Favorit'}
+                    title={photo.is_favorite ? 'Fjern favorit' : 'Favorit'}
+                  >
+                    <Heart
+                      className={`h-4 w-4 ${
+                        photo.is_favorite
+                          ? 'text-rose-500'
+                          : 'text-muted-foreground'
+                      }`}
+                      fill={photo.is_favorite ? 'currentColor' : 'none'}
+                    />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

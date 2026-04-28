@@ -1,13 +1,15 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Monitor } from 'lucide-react'
+import { Heart, Pencil, Trash2, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  getMemories,
   updateMemory,
   deleteMemory,
+  toggleMemoryFavorite,
   type Memory,
   type MemoryType,
   type MemoryUpdateFormData,
@@ -135,16 +137,71 @@ export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) 
   const router = useRouter()
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
-    setMemories(initialMemories)
-  }, [initialMemories])
+    // Server-side props refresh: re-apply current favorites filter on top of
+    // the freshly delivered list so the visible state stays consistent after
+    // router.refresh() (e.g. after delete/show-on-screen).
+    if (favoritesOnly) {
+      setMemories(initialMemories.filter((m) => m.is_favorite))
+    } else {
+      setMemories(initialMemories)
+    }
+  }, [initialMemories, favoritesOnly])
 
   function handleSaveEdit() {
     setEditingId(null)
     router.refresh()
+  }
+
+  function handleToggleFavoritesFilter(next: boolean) {
+    setFavoritesOnly(next)
+    setActionError(null)
+    startTransition(async () => {
+      try {
+        const filtered = await getMemories({ is_favorite: next ? true : null })
+        setMemories(filtered)
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
+  }
+
+  function handleToggleFavorite(memory: Memory) {
+    setActionError(null)
+    const nextFavorite = !memory.is_favorite
+    setMemories((prev) => {
+      const updated = prev.map((m) =>
+        m.id === memory.id ? { ...m, is_favorite: nextFavorite } : m
+      )
+      if (favoritesOnly && !nextFavorite) {
+        return updated.filter((m) => m.id !== memory.id)
+      }
+      return updated
+    })
+    startTransition(async () => {
+      try {
+        await toggleMemoryFavorite(memory.id, nextFavorite)
+      } catch (err) {
+        setMemories((prev) => {
+          const exists = prev.some((m) => m.id === memory.id)
+          if (!exists) {
+            return [...prev, { ...memory, is_favorite: memory.is_favorite }].sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            )
+          }
+          return prev.map((m) =>
+            m.id === memory.id ? { ...m, is_favorite: memory.is_favorite } : m
+          )
+        })
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
   }
 
   function handleDelete(memory: Memory) {
@@ -214,6 +271,19 @@ export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) 
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(e) => handleToggleFavoritesFilter(e.target.checked)}
+            disabled={isPending}
+            className="h-4 w-4 rounded border-input"
+          />
+          Kun favoritter
+        </label>
+      </div>
+
       {memories.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Ingen minder endnu. Minder oprettes af gæster.
@@ -272,6 +342,24 @@ export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) 
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => handleToggleFavorite(memory)}
+                      aria-label={memory.is_favorite ? 'Fjern favorit' : 'Favorit'}
+                      title={memory.is_favorite ? 'Fjern favorit' : 'Favorit'}
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${
+                          memory.is_favorite
+                            ? 'text-rose-500'
+                            : 'text-muted-foreground'
+                        }`}
+                        fill={memory.is_favorite ? 'currentColor' : 'none'}
+                      />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"

@@ -20,6 +20,7 @@ export interface Memory {
   description: string | null
   when_date: string | null
   image_url: string | null
+  is_favorite: boolean
   created_at: string
   guests: MemoryGuest | null
 }
@@ -30,17 +31,26 @@ export interface MemoryUpdateFormData {
   when_date: string | null
 }
 
+export interface MemoryFilters {
+  is_favorite?: boolean | null
+}
+
 function normalizeGuest(raw: unknown): MemoryGuest | null {
   if (!raw) return null
   if (Array.isArray(raw)) return (raw[0] as MemoryGuest) ?? null
   return raw as MemoryGuest
 }
 
-export async function getMemories(): Promise<Memory[]> {
-  const { data, error } = await supabaseServer
+export async function getMemories(filters: MemoryFilters = {}): Promise<Memory[]> {
+  let query = supabaseServer
     .from('memories')
     .select('*, guests(id, name, type)')
     .order('created_at', { ascending: false })
+
+  if (typeof filters.is_favorite === 'boolean')
+    query = query.eq('is_favorite', filters.is_favorite)
+
+  const { data, error } = await query
   if (error) throw new Error('Failed to load memories')
   return (data ?? []).map((row: Record<string, unknown>) => ({
     ...(row as unknown as Memory),
@@ -61,6 +71,21 @@ export async function updateMemory(
       description: formData.description,
       when_date: formData.when_date,
     })
+    .eq('id', id)
+  if (error) throw new Error('Failed to update memory')
+
+  revalidatePath('/admin/minder')
+}
+
+export async function toggleMemoryFavorite(
+  id: string,
+  is_favorite: boolean
+): Promise<void> {
+  await assertAdmin()
+
+  const { error } = await supabaseServer
+    .from('memories')
+    .update({ is_favorite })
     .eq('id', id)
   if (error) throw new Error('Failed to update memory')
 

@@ -16,6 +16,7 @@ export interface Photo {
   storage_url: string
   taken_at: string
   is_active: boolean
+  is_favorite: boolean
   created_at: string
   guests: PhotoGuest | null
 }
@@ -24,6 +25,7 @@ export interface PhotoFilters {
   after?: string | null
   before?: string | null
   active?: boolean | null
+  is_favorite?: boolean | null
 }
 
 function normalizeGuest(raw: unknown): PhotoGuest | null {
@@ -41,6 +43,8 @@ export async function getPhotos(filters: PhotoFilters = {}): Promise<Photo[]> {
   if (filters.after) query = query.gte('taken_at', filters.after)
   if (filters.before) query = query.lte('taken_at', filters.before)
   if (typeof filters.active === 'boolean') query = query.eq('is_active', filters.active)
+  if (typeof filters.is_favorite === 'boolean')
+    query = query.eq('is_favorite', filters.is_favorite)
 
   const { data, error } = await query
   if (error) throw new Error('Failed to load photos')
@@ -56,6 +60,21 @@ export async function togglePhotoActive(id: string, is_active: boolean): Promise
   const { error } = await supabaseServer
     .from('photos')
     .update({ is_active })
+    .eq('id', id)
+  if (error) throw new Error('Failed to update photo')
+
+  revalidatePath('/admin/billeder')
+}
+
+export async function togglePhotoFavorite(
+  id: string,
+  is_favorite: boolean
+): Promise<void> {
+  await assertAdmin()
+
+  const { error } = await supabaseServer
+    .from('photos')
+    .update({ is_favorite })
     .eq('id', id)
   if (error) throw new Error('Failed to update photo')
 

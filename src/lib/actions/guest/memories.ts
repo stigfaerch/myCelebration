@@ -15,6 +15,7 @@ export interface MyMemory {
   description: string | null
   when_date: string | null
   image_url: string | null
+  is_favorite: boolean
   created_at: string
 }
 
@@ -39,7 +40,7 @@ export async function getMyMemories(): Promise<MyMemory[]> {
   const guest = await resolveGuest()
   const { data, error } = await supabaseServer
     .from('memories')
-    .select('id, guest_id, title, type, description, when_date, image_url, created_at')
+    .select('id, guest_id, title, type, description, when_date, image_url, is_favorite, created_at')
     .eq('guest_id', guest.id)
     .order('created_at', { ascending: false })
   if (error) throw new Error('Failed to load memories')

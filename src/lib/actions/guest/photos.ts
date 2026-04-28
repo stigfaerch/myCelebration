@@ -11,6 +11,7 @@ export interface Photo {
   storage_url: string
   taken_at: string
   is_active: boolean
+  is_favorite: boolean
   created_at: string
 }
 
