@@ -14,8 +14,8 @@ export function MemoryIndicator({ uuid, count }: Props) {
     count === 0
       ? 'Opret dit første minde'
       : count === 1
-      ? 'Du har 1 minde'
-      : `Du har ${count} minder`
+      ? 'Du har oprettet 1 minde'
+      : `Du har oprettet ${count} minder`
 
   return (
     <section>

@@ -91,7 +91,7 @@ export function MemoryManager({ initialMemories }: Props) {
       )}
 
       {memories.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Du har ingen minder endnu.</p>
+        <p className="text-sm text-muted-foreground">Du har endnu ikke oprettet nogen minder.</p>
       ) : (
         <ul className="space-y-2">
           {memories.map((memory) => {

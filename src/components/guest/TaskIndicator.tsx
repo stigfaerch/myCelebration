@@ -24,7 +24,7 @@ export function TaskIndicator({ uuid, assignments }: Props) {
     return (
       <section className="rounded-lg border p-4">
         <h2 className="text-base font-semibold mb-1">Opgaver</h2>
-        <p className="text-sm text-muted-foreground">Du har ingen opgaver.</p>
+        <p className="text-sm text-muted-foreground">Du er endnu ikke blevet tildelt nogen opgaver.</p>
       </section>
     )
   }

@@ -153,7 +153,7 @@ export function PerformanceManager({ initialPerformances }: Props) {
       )}
 
       {items.length === 0 && !showCreateForm ? (
-        <p className="text-sm text-muted-foreground">Du har ingen indslag endnu.</p>
+        <p className="text-sm text-muted-foreground">Du har endnu ikke oprettet indslag.</p>
       ) : (
         <ul className="space-y-2">
           {items.map((p) => (

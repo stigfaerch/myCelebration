@@ -110,7 +110,10 @@ export function PhotoGrid({ initialPhotos, uuid }: Props) {
           </p>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-col gap-2 w-full max-w-xs">
-            <Button render={<Link href={`/${uuid}/billeder/kamera`} />}>
+            <Button
+              nativeButton={false}
+              render={<Link href={`/${uuid}/billeder/kamera`} />}
+            >
               <CameraIcon className="size-4" />
               Tag billede
             </Button>
