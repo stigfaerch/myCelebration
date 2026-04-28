@@ -5,12 +5,14 @@ import { getMyInvitation } from '@/lib/actions/guest/invitations'
 import { getChoiceDefinitions, getMyChoiceAnswers } from '@/lib/actions/guest/choices'
 import { getMyPerformances } from '@/lib/actions/guest/performances'
 import { getMyAssignments } from '@/lib/actions/guest/tasks'
+import { getMyMemories } from '@/lib/actions/guest/memories'
 import { getGalleryItems } from '@/lib/actions/guest/gallery'
 import { supabaseServer } from '@/lib/supabase/server'
 import { InvitationAccept } from '@/components/guest/InvitationAccept'
 import { PerformanceManager } from '@/components/guest/PerformanceManager'
 import { ChoiceAnswers } from '@/components/guest/ChoiceAnswers'
 import { TaskIndicator } from '@/components/guest/TaskIndicator'
+import { MemoryIndicator } from '@/components/guest/MemoryIndicator'
 import { ScreenRouter } from '@/components/screen/ScreenRouter'
 import { ScreenDefault } from '@/components/screen/ScreenDefault'
 import { ScreenPage } from '@/components/screen/ScreenPage'
@@ -160,13 +162,15 @@ export default async function ForsidePage({ params }: Props) {
     return <ScreenRouter guestId={guest.id}>{content}</ScreenRouter>
   }
 
-  const [invitation, definitions, answers, performances, assignments] = await Promise.all([
-    getMyInvitation(),
-    getChoiceDefinitions(),
-    getMyChoiceAnswers(),
-    getMyPerformances(),
-    getMyAssignments(),
-  ])
+  const [invitation, definitions, answers, performances, assignments, memories] =
+    await Promise.all([
+      getMyInvitation(),
+      getChoiceDefinitions(),
+      getMyChoiceAnswers(),
+      getMyPerformances(),
+      getMyAssignments(),
+      getMyMemories(),
+    ])
 
   const answersMap: Record<string, string> = Object.fromEntries(
     answers
@@ -202,6 +206,7 @@ export default async function ForsidePage({ params }: Props) {
       )}
       {!invitationAccepted && <InvitationAccept initial={invitation} />}
       <TaskIndicator uuid={uuid} assignments={assignments} />
+      <MemoryIndicator uuid={uuid} count={memories.length} />
       <ChoiceAnswers definitions={definitions} initialAnswers={answersMap} />
       <PerformanceManager initialPerformances={performances} />
       {invitationAccepted && <InvitationAccept initial={invitation} />}

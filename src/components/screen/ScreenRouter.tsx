@@ -11,9 +11,18 @@ interface Props {
 
 /**
  * Client-side realtime subscriber for screen-type guests.
- * Listens to `screen_state` changes for this guest and triggers
- * `router.refresh()` to re-render the server component tree with
- * fresh override data. Renders its children unchanged.
+ *
+ * Subscribes to two tables:
+ *   - `screen_state` filtered to this guest — picks up override changes
+ *     (Vis på skærm / Tilbage til skærm-rotation, photo/memory single-render).
+ *   - `gallery_config` (singleton, no filter) — picks up admin changes on
+ *     `/admin/galleri` (interval, filter dates, source, display type, etc.)
+ *     so screens currently in the gallery default render path re-render
+ *     without a manual reload. The cycler/page-mode paths also re-render on
+ *     this signal, which is acceptable noise (admin saves rarely).
+ *
+ * Both subscriptions trigger `router.refresh()` to re-render the server
+ * component tree. Children are passed through unchanged.
  */
 export function ScreenRouter({ guestId, children }: Props) {
   const router = useRouter()
@@ -25,7 +34,7 @@ export function ScreenRouter({ guestId, children }: Props) {
     // channel when the same topic is re-used on the same client, which under
     // React 19 Strict Mode's intentional double-effect (and any remount) makes
     // the first cleanup tear down the still-mounted second subscription.
-    const topic = `screen_state:${guestId}:${instanceId}`
+    const topic = `screen:${guestId}:${instanceId}`
     const channel = client
       .channel(topic)
       .on(
@@ -35,6 +44,18 @@ export function ScreenRouter({ guestId, children }: Props) {
           schema: 'public',
           table: 'screen_state',
           filter: `guest_id=eq.${guestId}`,
+        },
+        () => {
+          router.refresh()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'gallery_config',
+          // Singleton table — no filter; any change refreshes all screens.
         },
         () => {
           router.refresh()

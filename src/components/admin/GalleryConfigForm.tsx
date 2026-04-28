@@ -30,6 +30,19 @@ function fromDatetimeLocal(value: string): string | null {
   return d.toISOString()
 }
 
+/**
+ * Build today's [00:00, 23:59] bounds in the local timezone formatted for a
+ * `datetime-local` input. Stays in local time intentionally — that's the
+ * format the inputs accept and the admin's mental model is "the day of the
+ * celebration as seen on a wall clock", not UTC.
+ */
+function todayBounds(): { from: string; to: string } {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ymd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  return { from: `${ymd}T00:00`, to: `${ymd}T23:59` }
+}
+
 export function GalleryConfigForm({ config }: Props) {
   const router = useRouter()
   const [source, setSource] = useState<GallerySource>(config.source)
@@ -147,24 +160,53 @@ export function GalleryConfigForm({ config }: Props) {
         </Label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="gallery-filter-after">Vis efter</Label>
-          <Input
-            id="gallery-filter-after"
-            type="datetime-local"
-            value={filterAfter}
-            onChange={(e) => setFilterAfter(e.target.value)}
-          />
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="gallery-filter-after">Vis efter</Label>
+            <Input
+              id="gallery-filter-after"
+              type="datetime-local"
+              value={filterAfter}
+              onChange={(e) => setFilterAfter(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="gallery-filter-before">Vis før</Label>
+            <Input
+              id="gallery-filter-before"
+              type="datetime-local"
+              value={filterBefore}
+              onChange={(e) => setFilterBefore(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="gallery-filter-before">Vis før</Label>
-          <Input
-            id="gallery-filter-before"
-            type="datetime-local"
-            value={filterBefore}
-            onChange={(e) => setFilterBefore(e.target.value)}
-          />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const { from, to } = todayBounds()
+              setFilterAfter(from)
+              setFilterBefore(to)
+            }}
+          >
+            Vis i dag
+          </Button>
+          {(filterAfter || filterBefore) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFilterAfter('')
+                setFilterBefore('')
+              }}
+            >
+              Ryd filter
+            </Button>
+          )}
         </div>
       </div>
 
