@@ -1,8 +1,15 @@
 import { getPhotos } from '@/lib/actions/photos'
+import { getActiveSingleOverrides } from '@/lib/actions/screen'
 import { PhotoManager } from '@/components/admin/PhotoManager'
 
 export default async function BillederPage() {
-  const photos = await getPhotos()
+  const [photos, overrides] = await Promise.all([
+    getPhotos(),
+    getActiveSingleOverrides(),
+  ])
+  const activeOverrides = overrides
+    .filter((o) => o.kind === 'photo')
+    .map((o) => ({ screenId: o.screenId, screenName: o.screenName }))
   return (
     <div className="p-6 space-y-4">
       <div>
@@ -11,7 +18,7 @@ export default async function BillederPage() {
           Billeder uploadet af gæster. Filtrer, deaktiver, slet eller vis på skærm.
         </p>
       </div>
-      <PhotoManager initialPhotos={photos} />
+      <PhotoManager initialPhotos={photos} activeOverrides={activeOverrides} />
     </div>
   )
 }

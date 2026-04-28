@@ -738,9 +738,13 @@ async function hydrateStaticItemData(staticKey: string): Promise<unknown> {
     return { guests: data ?? [] }
   }
   if (staticKey === 'hvor') {
+    // Alias the embedded relation to `locations` so the row shape matches
+    // `ScreenHvorEvent.locations` in `src/components/screen/ScreenHvor.tsx`.
+    // Without the alias, the field would be returned as `event_locations`
+    // and `event.locations.length` blows up at render time.
     const { data } = await supabaseServer
       .from('events')
-      .select('*, event_locations(id, title, description)')
+      .select('*, locations:event_locations(id, title, description)')
       .order('sort_order')
     return { events: data ?? [] }
   }

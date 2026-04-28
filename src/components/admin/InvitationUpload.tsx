@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { Upload } from 'lucide-react'
 import { uploadInvitation } from '@/lib/actions/information'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -67,7 +68,12 @@ export function InvitationUpload({ currentUrl }: Props) {
           disabled={isPending}
           onClick={() => fileInputRef.current?.click()}
         >
-          {isPending ? 'Uploader...' : currentUrl ? 'Erstat invitation' : 'Upload invitation'}
+          <Upload className="size-4" />
+          {isPending
+            ? 'Uploader...'
+            : currentUrl
+              ? 'Skift PDF eller billede'
+              : 'Upload PDF eller billede'}
         </Button>
         <span className="text-xs text-muted-foreground">PDF, PNG eller JPG</span>
       </div>

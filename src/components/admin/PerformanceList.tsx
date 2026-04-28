@@ -6,7 +6,7 @@ import { updatePerformanceDuration, updatePerformanceStatus } from '@/lib/action
 type PerformanceWithGuest = {
   id: string
   guest_id: string
-  type: PerformanceType
+  type: PerformanceType[]
   title: string
   description: string | null
   duration_minutes: number | null
@@ -24,7 +24,7 @@ const TYPE_LABELS: Record<PerformanceType | 'all', string> = {
   all: 'Alle',
   speech: 'Tale',
   toast: 'Skål',
-  music: 'Musik',
+  music: 'Sang & musik',
   dance: 'Dans',
   poem: 'Digt',
   other: 'Andet',
@@ -98,12 +98,21 @@ function PerformanceRow({ performance }: { performance: PerformanceWithGuest }) 
       : performance.description
     : null
 
+  // Defensive: if the migration hasn't run yet or the row was hand-edited,
+  // tolerate a non-array value rather than crashing the admin list.
+  const types: PerformanceType[] = Array.isArray(performance.type) ? performance.type : []
+
   return (
     <li className="rounded-md border p-4 space-y-2">
       <div className="flex flex-wrap items-start gap-2">
-        <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[performance.type]}`}>
-          {TYPE_LABELS[performance.type]}
-        </span>
+        {types.map((t) => (
+          <span
+            key={t}
+            className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[t]}`}
+          >
+            {TYPE_LABELS[t]}
+          </span>
+        ))}
         <span className="text-sm font-medium">{performance.title}</span>
         {performance.guests && (
           <span className="text-xs text-muted-foreground">— {performance.guests.name}</span>
@@ -160,7 +169,9 @@ export function PerformanceList({ initialPerformances }: Props) {
 
   const filtered = filter === 'all'
     ? initialPerformances
-    : initialPerformances.filter((p) => p.type === filter)
+    : initialPerformances.filter((p) =>
+        Array.isArray(p.type) ? p.type.includes(filter) : false
+      )
 
   return (
     <div className="space-y-4">

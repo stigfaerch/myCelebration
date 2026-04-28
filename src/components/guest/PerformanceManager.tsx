@@ -26,7 +26,7 @@ interface Props {
 const TYPE_LABELS: Record<PerformanceType, string> = {
   speech: 'Tale',
   toast: 'Skål',
-  music: 'Musik',
+  music: 'Sang & musik',
   dance: 'Dans',
   poem: 'Digt',
   other: 'Andet',
@@ -196,15 +196,25 @@ function PerformanceRow({
   onEdit: () => void
   onDelete: () => void
 }) {
+  // Defensive: pre-migration rows or unexpected payloads might present a
+  // non-array value. Treat anything non-array as empty so the row still
+  // renders without crashing the page.
+  const types: PerformanceType[] = Array.isArray(performance.type) ? performance.type : []
+
   return (
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium">{performance.title}</span>
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-xs bg-muted text-muted-foreground">
-              {TYPE_LABELS[performance.type]}
-            </span>
+            {types.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center rounded px-2 py-0.5 text-xs bg-muted text-muted-foreground"
+              >
+                {TYPE_LABELS[t]}
+              </span>
+            ))}
             <span
               className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[performance.status]}`}
             >
@@ -263,18 +273,39 @@ function PerformanceForm({
   submitLabel: string
 }) {
   const [title, setTitle] = React.useState(initial?.title ?? '')
-  const [type, setType] = React.useState<PerformanceType>(initial?.type ?? 'other')
+  // Multi-select state. Default for a new indslag is an empty Set so the
+  // user must explicitly pick at least one type. For existing rows we seed
+  // from the stored array, defensively filtering non-array values.
+  const [selectedTypes, setSelectedTypes] = React.useState<Set<PerformanceType>>(
+    () => new Set(Array.isArray(initial?.type) ? initial!.type : [])
+  )
   const [description, setDescription] = React.useState(initial?.description ?? '')
   const [duration, setDuration] = React.useState<string>(
     initial?.duration_minutes != null ? String(initial.duration_minutes) : ''
   )
   const [validationError, setValidationError] = React.useState<string | null>(null)
 
+  function toggleType(t: PerformanceType) {
+    setSelectedTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(t)) {
+        next.delete(t)
+      } else {
+        next.add(t)
+      }
+      return next
+    })
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
       setValidationError('Titel er påkrævet')
+      return
+    }
+    if (selectedTypes.size === 0) {
+      setValidationError('Vælg mindst én type')
       return
     }
     const parsedDuration = duration === '' ? null : Number(duration)
@@ -285,7 +316,7 @@ function PerformanceForm({
     setValidationError(null)
     onSubmit({
       title: trimmedTitle,
-      type,
+      type: Array.from(selectedTypes),
       description: description.trim() || null,
       duration_minutes: parsedDuration,
     })
@@ -305,22 +336,32 @@ function PerformanceForm({
         />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="perf-type">Type</Label>
-        <select
-          id="perf-type"
-          value={type}
-          onChange={(e) => setType(e.target.value as PerformanceType)}
-          disabled={disabled}
-          className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-        >
-          {TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {TYPE_LABELS[t]}
-            </option>
-          ))}
-        </select>
-      </div>
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">Type</legend>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+          {TYPE_OPTIONS.map((t) => {
+            const id = `perf-type-${t}`
+            const checked = selectedTypes.has(t)
+            return (
+              <label
+                key={t}
+                htmlFor={id}
+                className="inline-flex items-center gap-2 text-sm cursor-pointer"
+              >
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleType(t)}
+                  disabled={disabled}
+                  className="h-4 w-4 rounded border-input"
+                />
+                {TYPE_LABELS[t]}
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div className="space-y-1">
         <Label htmlFor="perf-desc">Beskrivelse</Label>

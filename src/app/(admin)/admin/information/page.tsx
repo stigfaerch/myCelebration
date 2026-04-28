@@ -1,10 +1,26 @@
 import { getFestInfo, getEvents } from '@/lib/actions/information'
+import { getPhotos } from '@/lib/actions/photos'
 import { FestDescriptionEditor } from '@/components/admin/FestDescriptionEditor'
 import { InvitationUpload } from '@/components/admin/InvitationUpload'
 import { EventsManager } from '@/components/admin/EventsManager'
+import { ForsidebilledePicker } from '@/components/admin/ForsidebilledePicker'
 
 export default async function InformationPage() {
-  const [festInfo, events] = await Promise.all([getFestInfo(), getEvents()])
+  const [festInfo, events, photos] = await Promise.all([
+    getFestInfo(),
+    getEvents(),
+    getPhotos(),
+  ])
+
+  const forsidebillede =
+    (festInfo as { forsidebillede?: { id: string; storage_url: string } | null } | null)
+      ?.forsidebillede ?? null
+
+  const pickerPhotos = (photos ?? []).map((p) => ({
+    id: p.id,
+    storage_url: p.storage_url,
+    taken_at: p.taken_at,
+  }))
 
   return (
     <div className="space-y-10">
@@ -26,7 +42,18 @@ export default async function InformationPage() {
         />
       </section>
 
-      {/* Sektion 2 — Invitation */}
+      {/* Sektion 2 — Forsidebillede */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Forsidebillede</h2>
+          <p className="text-sm text-muted-foreground">
+            Vises over festbeskrivelsen på gæsternes forside.
+          </p>
+        </div>
+        <ForsidebilledePicker current={forsidebillede} allPhotos={pickerPhotos} />
+      </section>
+
+      {/* Sektion 3 — Invitation */}
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold">Invitation</h2>
@@ -35,7 +62,7 @@ export default async function InformationPage() {
         <InvitationUpload currentUrl={(festInfo?.invitation_url as string | null) ?? null} />
       </section>
 
-      {/* Sektion 3 — Begivenheder */}
+      {/* Sektion 4 — Begivenheder */}
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold">Begivenheder</h2>

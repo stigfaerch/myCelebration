@@ -6,10 +6,19 @@ import { resolveGuest, assertNotScreen } from '@/lib/auth/resolveGuest'
 export type PerformanceType = 'speech' | 'toast' | 'music' | 'dance' | 'poem' | 'other'
 export type PerformanceStatus = 'pending' | 'approved' | 'rejected' | 'scheduled'
 
+const PERFORMANCE_TYPE_VALUES: readonly PerformanceType[] = [
+  'speech',
+  'toast',
+  'music',
+  'dance',
+  'poem',
+  'other',
+] as const
+
 export interface MyPerformance {
   id: string
   guest_id: string
-  type: PerformanceType
+  type: PerformanceType[]
   title: string
   description: string | null
   duration_minutes: number | null
@@ -19,10 +28,26 @@ export interface MyPerformance {
 }
 
 export interface PerformanceInput {
-  type: PerformanceType
+  type: PerformanceType[]
   title: string
   description?: string | null
   duration_minutes?: number | null
+}
+
+function validateTypes(types: PerformanceType[]): PerformanceType[] {
+  if (!Array.isArray(types) || types.length === 0) {
+    throw new Error('Vælg mindst én type')
+  }
+  // Dedupe + allowlist guard. Any unknown value is rejected outright so a
+  // malicious client can't smuggle arbitrary strings into an enum array.
+  const seen = new Set<PerformanceType>()
+  for (const t of types) {
+    if (!PERFORMANCE_TYPE_VALUES.includes(t)) {
+      throw new Error('Ugyldig type')
+    }
+    seen.add(t)
+  }
+  return Array.from(seen)
 }
 
 export async function getMyPerformances(): Promise<MyPerformance[]> {
@@ -40,10 +65,11 @@ export async function createPerformance(input: PerformanceInput): Promise<void> 
   const guest = await assertNotScreen()
   const title = input.title?.trim()
   if (!title) throw new Error('Title required')
+  const types = validateTypes(input.type)
 
   const payload = {
     guest_id: guest.id,
-    type: input.type,
+    type: types,
     title,
     description: input.description?.trim() || null,
     duration_minutes:
@@ -62,10 +88,11 @@ export async function updatePerformance(id: string, input: PerformanceInput): Pr
   const guest = await assertNotScreen()
   const title = input.title?.trim()
   if (!title) throw new Error('Title required')
+  const types = validateTypes(input.type)
 
   // Ownership enforced by combined WHERE (id + guest_id)
   const payload = {
-    type: input.type,
+    type: types,
     title,
     description: input.description?.trim() || null,
     duration_minutes:

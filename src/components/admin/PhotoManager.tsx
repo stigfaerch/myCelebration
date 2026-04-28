@@ -1,5 +1,6 @@
 'use client'
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Trash2, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,10 +11,16 @@ import {
   deletePhoto,
   type Photo,
 } from '@/lib/actions/photos'
-import { showOnPrimaryScreen } from '@/lib/actions/screen'
+import { showOnPrimaryScreen, clearScreenOverride } from '@/lib/actions/screen'
+
+export interface ActivePhotoOverride {
+  screenId: string
+  screenName: string
+}
 
 interface Props {
   initialPhotos: Photo[]
+  activeOverrides?: ActivePhotoOverride[]
 }
 
 function fromDatetimeLocal(value: string): string | null {
@@ -30,7 +37,8 @@ function formatDate(iso: string): string {
   })
 }
 
-export function PhotoManager({ initialPhotos }: Props) {
+export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
+  const router = useRouter()
   const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
   const [filterAfter, setFilterAfter] = useState('')
   const [filterBefore, setFilterBefore] = useState('')
@@ -105,6 +113,19 @@ export function PhotoManager({ initialPhotos }: Props) {
     startTransition(async () => {
       try {
         await showOnPrimaryScreen('photo', photo.id)
+        router.refresh()
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
+  }
+
+  function handleClearOverride(screenId: string) {
+    setActionError(null)
+    startTransition(async () => {
+      try {
+        await clearScreenOverride(screenId)
+        router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
@@ -114,6 +135,31 @@ export function PhotoManager({ initialPhotos }: Props) {
   return (
     <div className="space-y-4">
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+
+      {activeOverrides.length > 0 && (
+        <div className="space-y-2">
+          {activeOverrides.map((override) => (
+            <div
+              key={override.screenId}
+              className="rounded-md border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-3"
+            >
+              <p className="text-sm text-amber-900">
+                Skærm <strong>{override.screenName}</strong> viser et billede —
+                skærm-rotationen er sat på pause.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleClearOverride(override.screenId)}
+                disabled={isPending}
+              >
+                Tilbage til skærm-rotation
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
         <div className="grid gap-1">

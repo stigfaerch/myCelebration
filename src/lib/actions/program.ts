@@ -3,13 +3,14 @@ import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
 
-export type ProgramItemType = 'break' | 'performance' | 'info' | 'ceremony'
+export type ProgramItemType = 'break' | 'performance' | 'info' | 'ceremony' | 'event'
 
 export interface ProgramItem {
   id: string
   title: string
   start_time: string | null
   duration_minutes: number | null
+  show_duration: boolean
   type: ProgramItemType
   performance_id: string | null
   sort_order: number
@@ -44,6 +45,7 @@ export async function createProgramItem(formData: {
   type: ProgramItemType
   start_time?: string | null
   duration_minutes?: number | null
+  show_duration?: boolean
   performance_id?: string | null
   parent_id?: string | null
   notes?: string | null
@@ -70,6 +72,7 @@ export async function updateProgramItem(id: string, formData: {
   type: ProgramItemType
   start_time?: string | null
   duration_minutes?: number | null
+  show_duration?: boolean
   performance_id?: string | null
   parent_id?: string | null
   notes?: string | null

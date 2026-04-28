@@ -11,43 +11,45 @@ interface GuestListProps {
   guests: GuestListItem[]
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  couple: 'Par',
-  family: 'Familie',
-}
+// Render order on the guest page. Section is omitted entirely when empty.
+const SECTIONS = [
+  { key: 'main_person', label: 'Hovedperson' },
+  { key: 'family', label: 'Familie' },
+  { key: 'friend', label: 'Venner' },
+] as const
 
 export function GuestList({ guests }: GuestListProps) {
-  if (guests.length === 0) {
+  // Group by type. Page-level query already sorts alphabetically; preserved here.
+  const grouped = SECTIONS.map((section) => ({
+    ...section,
+    guests: guests.filter((g) => g.type === section.key),
+  })).filter((section) => section.guests.length > 0)
+
+  if (grouped.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">Ingen deltagere endnu</p>
     )
   }
 
   return (
-    <ul className="space-y-2">
-      {guests.map((guest) => {
-        const badge = TYPE_LABELS[guest.type]
-        return (
-          <li
-            key={guest.id}
-            className="rounded-md border p-3 flex items-start justify-between gap-3"
-          >
-            <div className="min-w-0">
-              <p className="font-medium truncate">{guest.name}</p>
-              {guest.relation ? (
-                <p className="text-sm text-muted-foreground truncate">
-                  {guest.relation}
-                </p>
-              ) : null}
-            </div>
-            {badge ? (
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                {badge}
-              </span>
-            ) : null}
-          </li>
-        )
-      })}
-    </ul>
+    <div className="space-y-6">
+      {grouped.map((section) => (
+        <section key={section.key}>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            {section.label}
+          </h2>
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {section.guests.map((guest) => (
+              <li key={guest.id} className="text-sm">
+                <span className="font-medium">{guest.name}</span>
+                {guest.relation ? (
+                  <span className="text-muted-foreground"> ({guest.relation})</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   )
 }

@@ -4,13 +4,71 @@ import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
 import { putR2Object } from '@/lib/storage/r2'
 
-export async function getFestInfo() {
+export interface FestInfo {
+  id: string
+  description: Record<string, unknown> | null
+  invitation_url: string | null
+  forsidebillede_photo_id: string | null
+  created_at: string
+  forsidebillede: { id: string; storage_url: string } | null
+}
+
+export async function getFestInfo(): Promise<FestInfo | null> {
   const { data, error } = await supabaseServer
     .from('fest_info')
-    .select('*')
+    .select('*, forsidebillede:photos!fest_info_forsidebillede_photo_id_fkey(id, storage_url)')
     .single()
   if (error) throw new Error(error.message)
-  return data
+  // PostgREST may return the embed as an array depending on FK cardinality;
+  // normalize to a single object or null so callers don't need to branch.
+  const row = data as (Record<string, unknown> & { forsidebillede?: unknown }) | null
+  if (!row) return null
+  const raw = row.forsidebillede
+  let forsidebillede: { id: string; storage_url: string } | null = null
+  if (Array.isArray(raw)) {
+    forsidebillede = (raw[0] as { id: string; storage_url: string } | undefined) ?? null
+  } else if (raw && typeof raw === 'object') {
+    forsidebillede = raw as { id: string; storage_url: string }
+  }
+  return {
+    id: row.id as string,
+    description: (row.description as Record<string, unknown> | null) ?? null,
+    invitation_url: (row.invitation_url as string | null) ?? null,
+    forsidebillede_photo_id: (row.forsidebillede_photo_id as string | null) ?? null,
+    created_at: row.created_at as string,
+    forsidebillede,
+  }
+}
+
+export async function setForsidebilledePhotoId(photoId: string | null): Promise<void> {
+  await assertAdmin()
+
+  if (photoId !== null) {
+    // Validate that the photo exists. The FK constraint would also catch this,
+    // but checking up front lets us return a clean Danish error to the admin
+    // rather than leaking a Postgres error string.
+    const { data: photo, error: photoError } = await supabaseServer
+      .from('photos')
+      .select('id')
+      .eq('id', photoId)
+      .maybeSingle()
+    if (photoError) throw new Error(photoError.message)
+    if (!photo) throw new Error('Billedet findes ikke')
+  }
+
+  const { data: existing } = await supabaseServer.from('fest_info').select('id').single()
+  if (!existing) throw new Error('fest_info not found')
+
+  const { error } = await supabaseServer
+    .from('fest_info')
+    .update({ forsidebillede_photo_id: photoId })
+    .eq('id', existing.id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/information')
+  // Guest forsides at /{uuid} read getFestInfo — invalidate the dynamic
+  // segment's layout so all guest pages refetch on next request.
+  revalidatePath('/[uuid]', 'layout')
 }
 
 export async function updateFestDescription(description: Record<string, unknown>) {
@@ -39,6 +97,7 @@ export async function getEvents() {
   const { data, error } = await supabaseServer
     .from('events')
     .select(`*, event_locations(*)`)
+    .order('start_time', { ascending: true, nullsFirst: false })
     .order('sort_order')
   if (error) throw new Error(error.message)
   return data

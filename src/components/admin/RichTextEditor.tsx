@@ -32,7 +32,32 @@ export function RichTextEditor({ value, onChange, placeholder: _placeholder }: P
 
   return (
     <div className="rounded-md border border-input bg-background">
-      <div className="flex gap-1 border-b p-1">
+      <div className="flex flex-wrap gap-1 border-b p-1">
+        <button
+          type="button"
+          onClick={() => editor?.chain().focus().setParagraph().run()}
+          className={`rounded px-2 py-1 text-xs ${editor?.isActive('paragraph') ? 'bg-accent' : 'hover:bg-accent'}`}
+          aria-label="Almindelig tekst"
+        >
+          P
+        </button>
+        <button
+          type="button"
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+          className={`rounded px-2 py-1 text-xs font-bold ${editor?.isActive('heading', { level: 1 }) ? 'bg-accent' : 'hover:bg-accent'}`}
+          aria-label="Overskrift 1"
+        >
+          H1
+        </button>
+        <button
+          type="button"
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+          className={`rounded px-2 py-1 text-xs font-bold ${editor?.isActive('heading', { level: 2 }) ? 'bg-accent' : 'hover:bg-accent'}`}
+          aria-label="Overskrift 2"
+        >
+          H2
+        </button>
+        <span className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
         <button
           type="button"
           onClick={() => editor?.chain().focus().toggleBold().run()}

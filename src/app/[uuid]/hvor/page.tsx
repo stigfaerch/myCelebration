@@ -15,6 +15,7 @@ export default async function HvorPage() {
   const { data: events, error } = await supabaseServer
     .from('events')
     .select('*, event_locations(id, title, description)')
+    .order('start_time', { ascending: true, nullsFirst: false })
     .order('sort_order')
 
   return (

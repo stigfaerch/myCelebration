@@ -9,7 +9,9 @@ import {
 interface PerformanceJoin {
   id: string
   title: string
-  type: string | null
+  // After migration 014 this column is a Postgres enum array; we keep it
+  // here for shape parity with the SELECT but never render it on this page.
+  type: string[] | null
   duration_minutes: number | null
   guests: { name: string } | { name: string }[] | null
 }
@@ -23,6 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
   performance: 'Indslag',
   info: 'Info',
   ceremony: 'Ceremoni',
+  event: 'Begivenhed',
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -30,6 +33,7 @@ const TYPE_COLORS: Record<string, string> = {
   performance: 'bg-purple-100 text-purple-800',
   info: 'bg-blue-100 text-blue-800',
   ceremony: 'bg-amber-100 text-amber-800',
+  event: 'bg-muted text-muted-foreground',
 }
 
 function formatTime(iso: string | null): string {
@@ -74,12 +78,14 @@ function ProgramItemRow({ item, indented = false }: { item: ProgramRow; indented
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{item.title}</span>
-            <span
-              className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${TYPE_COLORS[item.type] ?? ''}`}
-            >
-              {TYPE_LABELS[item.type] ?? item.type}
-            </span>
-            {item.duration_minutes != null && (
+            {item.type !== 'event' && (
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${TYPE_COLORS[item.type] ?? ''}`}
+              >
+                {TYPE_LABELS[item.type] ?? item.type}
+              </span>
+            )}
+            {item.show_duration && item.duration_minutes != null && (
               <span className="text-xs text-muted-foreground">{item.duration_minutes} min</span>
             )}
           </div>

@@ -12,7 +12,9 @@ import * as React from 'react'
 interface PerformanceJoin {
   id: string
   title: string
-  type: string | null
+  // After migration 014 this column is a Postgres enum array; we keep it
+  // here for shape parity with the SELECT but never render it on the screen.
+  type: string[] | null
   duration_minutes: number | null
   guests: { name: string } | { name: string }[] | null
 }

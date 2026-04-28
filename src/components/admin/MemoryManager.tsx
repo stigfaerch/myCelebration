@@ -12,10 +12,16 @@ import {
   type MemoryType,
   type MemoryUpdateFormData,
 } from '@/lib/actions/memories'
-import { showOnPrimaryScreen } from '@/lib/actions/screen'
+import { showOnPrimaryScreen, clearScreenOverride } from '@/lib/actions/screen'
+
+export interface ActiveMemoryOverride {
+  screenId: string
+  screenName: string
+}
 
 interface Props {
   initialMemories: Memory[]
+  activeOverrides?: ActiveMemoryOverride[]
 }
 
 const TYPE_LABELS: Record<MemoryType, string> = {
@@ -125,7 +131,7 @@ function MemoryEditForm({ memory, onSave, onCancel }: MemoryEditFormProps) {
   )
 }
 
-export function MemoryManager({ initialMemories }: Props) {
+export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) {
   const router = useRouter()
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -160,6 +166,19 @@ export function MemoryManager({ initialMemories }: Props) {
     startTransition(async () => {
       try {
         await showOnPrimaryScreen('memory', memory.id)
+        router.refresh()
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
+      }
+    })
+  }
+
+  function handleClearOverride(screenId: string) {
+    setActionError(null)
+    startTransition(async () => {
+      try {
+        await clearScreenOverride(screenId)
+        router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
@@ -169,6 +188,31 @@ export function MemoryManager({ initialMemories }: Props) {
   return (
     <div className="space-y-4">
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+
+      {activeOverrides.length > 0 && (
+        <div className="space-y-2">
+          {activeOverrides.map((override) => (
+            <div
+              key={override.screenId}
+              className="rounded-md border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-3"
+            >
+              <p className="text-sm text-amber-900">
+                Skærm <strong>{override.screenName}</strong> viser et minde —
+                skærm-rotationen er sat på pause.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleClearOverride(override.screenId)}
+                disabled={isPending}
+              >
+                Tilbage til skærm-rotation
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {memories.length === 0 ? (
         <p className="text-sm text-muted-foreground">

@@ -9,7 +9,7 @@ export type PerformanceStatus = 'pending' | 'approved' | 'rejected' | 'scheduled
 export interface Performance {
   id: string
   guest_id: string
-  type: PerformanceType
+  type: PerformanceType[]
   title: string
   description: string | null
   duration_minutes: number | null

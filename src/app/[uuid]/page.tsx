@@ -36,12 +36,79 @@ export default async function ForsidePage({ params }: Props) {
 
   // Screen-type guests render based on screen_state override; fall back to gallery.
   if (guest.type === 'screen') {
-    // Pages-mode (multi-page cycling) takes priority over the legacy
-    // single-override flow. If ANY assignments exist for this screen, we
-    // are in pages-mode — even if zero are currently visible (the cycler
-    // renders blank-black until the schedule rolls back into a visible
-    // window). This is intentional: assigning pages is an explicit
-    // operator signal that should not silently fall through to gallery.
+    // Render priority (Group F):
+    //   1. If `current_override IN ('photo', 'memory')` → render single override
+    //      (this PAUSES the cycler — explicit admin signal from
+    //      PhotoManager / MemoryManager "Vis på skærm").
+    //   2. Else if any screen_page_assignments exist → cycler (Phase 8).
+    //   3. Else if `current_override` is a legacy single-render kind
+    //      (page / gallery / program) → render that single override.
+    //   4. Else → gallery default.
+    const { data: stateRow } = await supabaseServer
+      .from('screen_state')
+      .select('current_override, override_ref_id')
+      .eq('guest_id', guest.id)
+      .maybeSingle()
+
+    const override = stateRow as
+      | { current_override: string | null; override_ref_id: string | null }
+      | null
+
+    const isPhotoOrMemoryOverride =
+      (override?.current_override === 'photo' ||
+        override?.current_override === 'memory') &&
+      !!override.override_ref_id
+
+    // Priority 1: photo / memory single override beats the cycler.
+    if (isPhotoOrMemoryOverride && override) {
+      let content: React.ReactNode = null
+      if (override.current_override === 'photo' && override.override_ref_id) {
+        const { data: photoRow } = await supabaseServer
+          .from('photos')
+          .select('storage_url')
+          .eq('id', override.override_ref_id)
+          .maybeSingle()
+        if (photoRow) {
+          content = <ScreenPhoto photo={photoRow as { storage_url: string }} />
+        }
+      } else if (
+        override.current_override === 'memory' &&
+        override.override_ref_id
+      ) {
+        const { data: memoryRow } = await supabaseServer
+          .from('memories')
+          .select('title, description, when_date, image_url, type')
+          .eq('id', override.override_ref_id)
+          .maybeSingle()
+        if (memoryRow) {
+          content = (
+            <ScreenMemory
+              memory={
+                memoryRow as {
+                  title: string
+                  description: string | null
+                  when_date: string | null
+                  image_url: string | null
+                  type: MemoryType
+                }
+              }
+            />
+          )
+        }
+      }
+
+      if (content) {
+        return <ScreenRouter guestId={guest.id}>{content}</ScreenRouter>
+      }
+      // Fall through if the referenced row is gone (e.g. photo deleted).
+    }
+
+    // Priority 2: Pages-mode (multi-page cycling). If ANY assignments exist
+    // for this screen, we are in pages-mode — even if zero are currently
+    // visible (the cycler renders blank-black until the schedule rolls back
+    // into a visible window). This is intentional: assigning pages is an
+    // explicit operator signal that should not silently fall through to
+    // gallery.
     if (await hasAnyScreenAssignments(guest.id)) {
       // Polymorphic cycle list (Plan 08-05): fetch visible assignments AND
       // hydrate the per-static-key data payload server-side in one call so
@@ -65,16 +132,7 @@ export default async function ForsidePage({ params }: Props) {
       )
     }
 
-    const { data: stateRow } = await supabaseServer
-      .from('screen_state')
-      .select('current_override, override_ref_id')
-      .eq('guest_id', guest.id)
-      .maybeSingle()
-
-    const override = stateRow as
-      | { current_override: string | null; override_ref_id: string | null }
-      | null
-
+    // Priority 3: legacy single-render override types (page / gallery / program).
     let content: React.ReactNode = null
 
     if (override?.current_override === 'page' && override.override_ref_id) {
@@ -90,40 +148,10 @@ export default async function ForsidePage({ params }: Props) {
           />
         )
       }
-    } else if (override?.current_override === 'photo' && override.override_ref_id) {
-      const { data: photoRow } = await supabaseServer
-        .from('photos')
-        .select('storage_url')
-        .eq('id', override.override_ref_id)
-        .maybeSingle()
-      if (photoRow) {
-        content = <ScreenPhoto photo={photoRow as { storage_url: string }} />
-      }
-    } else if (override?.current_override === 'memory' && override.override_ref_id) {
-      const { data: memoryRow } = await supabaseServer
-        .from('memories')
-        .select('title, description, when_date, image_url, type')
-        .eq('id', override.override_ref_id)
-        .maybeSingle()
-      if (memoryRow) {
-        content = (
-          <ScreenMemory
-            memory={
-              memoryRow as {
-                title: string
-                description: string | null
-                when_date: string | null
-                image_url: string | null
-                type: MemoryType
-              }
-            }
-          />
-        )
-      }
     }
 
-    // Default: gallery (for override null, 'gallery', 'program', or a
-    // reference whose target row has been deleted).
+    // Priority 4: Default gallery (for override null, 'gallery', 'program',
+    // or a reference whose target row has been deleted).
     if (!content) {
       const { config, items } = await getGalleryItems()
       content = <ScreenDefault config={config} items={items} />
@@ -149,10 +177,24 @@ export default async function ForsidePage({ params }: Props) {
   const description = (festInfo as { description?: Record<string, unknown> | null } | null)
     ?.description
 
+  const forsidebillede =
+    (festInfo as { forsidebillede?: { storage_url: string } | null } | null)
+      ?.forsidebillede ?? null
+
   const invitationAccepted = invitation?.accepted === true
 
   return (
     <div className="p-4 space-y-6">
+      {forsidebillede && (
+        <section className="-mx-4 -mt-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={forsidebillede.storage_url}
+            alt=""
+            className="w-full aspect-video object-cover"
+          />
+        </section>
+      )}
       {description && (
         <section>
           <RichTextDisplay content={description} />

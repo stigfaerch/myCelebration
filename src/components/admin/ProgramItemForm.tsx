@@ -17,6 +17,7 @@ interface Props {
 }
 
 const TYPE_OPTIONS: { value: ProgramItemType; label: string }[] = [
+  { value: 'event', label: 'Begivenhed' },
   { value: 'break', label: 'Pause' },
   { value: 'performance', label: 'Indslag' },
   { value: 'info', label: 'Information' },
@@ -41,10 +42,10 @@ function getGuestName(perf: Performances[number]): string {
 export function ProgramItemForm({ item, performances, items, defaultParentId, onSave, onCancel }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  // Default Type to 'performance' on new items so the indslag picker is
-  // immediately visible. When editing, preserve the existing type.
+  // Default Type to 'event' (Begivenhed) on new items — matches the DB
+  // column default. When editing, preserve the existing type.
   const [selectedType, setSelectedType] = useState<ProgramItemType>(
-    item?.type ?? 'performance'
+    item?.type ?? 'event'
   )
   const titleRef = useRef<HTMLInputElement>(null)
   const durationRef = useRef<HTMLInputElement>(null)
@@ -70,8 +71,16 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
 
     const type = fd.get('type') as ProgramItemType
     const start_time = (fd.get('start_time') as string) || null
+    // Duration only applies to 'performance' (Indslag). For any other type,
+    // we explicitly null it so old values don't linger after a type change.
     const durationRaw = fd.get('duration_minutes') as string
-    const duration_minutes = durationRaw ? Number(durationRaw) : null
+    const duration_minutes =
+      type === 'performance' && durationRaw ? Number(durationRaw) : null
+    // show_duration is meaningful only for 'performance'. For other types
+    // we persist false so the guest page never accidentally renders a
+    // duration even if duration_minutes is somehow non-null.
+    const show_duration =
+      type === 'performance' && fd.get('show_duration') === 'on'
     const performance_id = type === 'performance'
       ? ((fd.get('performance_id') as string) || null)
       : null
@@ -84,6 +93,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
       type,
       start_time,
       duration_minutes,
+      show_duration,
       performance_id,
       parent_id,
       notes,
@@ -175,18 +185,34 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
         />
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="pi-duration" className="text-sm font-medium">Varighed (minutter)</label>
-        <input
-          ref={durationRef}
-          id="pi-duration"
-          name="duration_minutes"
-          type="number"
-          min="1"
-          defaultValue={item?.duration_minutes ?? ''}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
+      {selectedType === 'performance' && (
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <label htmlFor="pi-duration" className="text-sm font-medium">Varighed (minutter)</label>
+            <input
+              ref={durationRef}
+              id="pi-duration"
+              name="duration_minutes"
+              type="number"
+              min="1"
+              defaultValue={item?.duration_minutes ?? ''}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="pi-show-duration"
+              name="show_duration"
+              type="checkbox"
+              defaultChecked={item?.show_duration ?? false}
+              className="h-4 w-4 rounded border-input"
+            />
+            <label htmlFor="pi-show-duration" className="text-sm font-medium">
+              Vis varighed på programsiden
+            </label>
+          </div>
+        </div>
+      )}
 
       {selectedType === 'performance' && (
         <div className="space-y-1">

@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,8 +44,10 @@ export function MemoryForm({ memory, onSave, onCancel }: Props) {
   const [removeImage, setRemoveImage] = React.useState(false)
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const existingImageUrl = memory?.image_url ?? null
+  const hasImage = Boolean(file) || (Boolean(existingImageUrl) && !removeImage)
 
   const newImagePreview = React.useMemo(() => {
     if (!file) return null
@@ -200,6 +203,7 @@ export function MemoryForm({ memory, onSave, onCancel }: Props) {
           />
         )}
         <input
+          ref={fileInputRef}
           id="memory-file"
           type="file"
           accept="image/jpeg,image/png,image/heic"
@@ -208,8 +212,19 @@ export function MemoryForm({ memory, onSave, onCancel }: Props) {
             setFile(f)
             if (f) setRemoveImage(false)
           }}
-          className="text-sm"
+          className="hidden"
         />
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="size-4" />
+            {hasImage ? 'Skift billede' : 'Upload billede'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2">

@@ -122,6 +122,49 @@ export async function clearScreenOverridesFor(
   if (error) throw new Error('Failed to clear orphan screen overrides')
 }
 
+/**
+ * Returns one entry per screen guest whose `current_override` is currently
+ * `'photo'` or `'memory'`. Used by PhotoManager / MemoryManager to render the
+ * "Tilbage til skærm-rotation" banner when a single-item override is masking
+ * the screen's normal page-cycle rotation.
+ *
+ * Read-only; no admin gate required because the calling pages are themselves
+ * admin-gated and we only return public-shape rows (screen guest id, name,
+ * override kind). No `override_ref_id` is returned.
+ */
+export async function getActiveSingleOverrides(): Promise<
+  Array<{ screenId: string; screenName: string; kind: 'photo' | 'memory' }>
+> {
+  const { data, error } = await supabaseServer
+    .from('screen_state')
+    .select('guest_id, current_override, guests!inner(id, name, type)')
+    .in('current_override', ['photo', 'memory'])
+
+  if (error) throw new Error('Failed to load active screen overrides')
+
+  // PostgREST embeds may surface as either a single object or an array
+  // depending on the relation cardinality inferred from the FK. Normalise
+  // both shapes here and pick the first row defensively.
+  type EmbeddedGuest = { id: string; name: string; type: string }
+  type Row = {
+    guest_id: string
+    current_override: 'photo' | 'memory'
+    guests: EmbeddedGuest | EmbeddedGuest[] | null
+  }
+
+  return ((data ?? []) as unknown as Row[])
+    .map((row) => {
+      const guest = Array.isArray(row.guests) ? row.guests[0] ?? null : row.guests
+      return { row, guest }
+    })
+    .filter(({ guest }) => guest?.type === 'screen')
+    .map(({ row, guest }) => ({
+      screenId: row.guest_id,
+      screenName: guest?.name ?? 'Skærm',
+      kind: row.current_override,
+    }))
+}
+
 export async function clearScreenOverride(screenGuestId: string): Promise<void> {
   await assertAdmin()
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { Upload } from 'lucide-react'
 import { createEvent, updateEvent, uploadMapImage } from '@/lib/actions/information'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -167,7 +168,12 @@ export function EventForm({ eventId, initialData, onDone }: Props) {
             disabled={isUploading}
             onClick={() => mapFileRef.current?.click()}
           >
-            {isUploading ? 'Uploader...' : 'Upload kortbillede'}
+            <Upload className="size-4" />
+            {isUploading
+              ? 'Uploader...'
+              : mapImageUrl
+                ? 'Skift billede'
+                : 'Upload billede'}
           </Button>
         </div>
         {mapUploadError && <p className="text-xs text-destructive">{mapUploadError}</p>}
