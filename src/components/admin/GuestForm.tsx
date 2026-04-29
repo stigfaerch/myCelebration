@@ -63,6 +63,26 @@ export function GuestForm({ defaultValues, action, submitLabel = 'Gem' }: Props)
         </select>
       </div>
 
+      {/* Hovedperson-specific fields */}
+      {type === 'main_person' && (
+        <div className="space-y-1">
+          <label htmlFor="wishlist_url" className="text-sm font-medium">
+            Ønskeseddel-link
+          </label>
+          <input
+            id="wishlist_url"
+            name="wishlist_url"
+            type="url"
+            placeholder="https://..."
+            defaultValue={defaultValues?.wishlist_url ?? ''}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-muted-foreground">
+            Vises på gæsternes forside efter Mine indslag.
+          </p>
+        </div>
+      )}
+
       {/* Screen-specific fields */}
       {type === 'screen' && (
         <div className="space-y-4 rounded-md border p-4 bg-muted/30">
@@ -98,6 +118,45 @@ export function GuestForm({ defaultValues, action, submitLabel = 'Gem' }: Props)
             defaultCycleSeconds={defaultValues?.screen_cycle_seconds ?? 8}
             defaultTransition={defaultValues?.screen_transition ?? 'fade'}
           />
+          {/* Resolution fields — admin-curation metadata used only by the
+              WYSIWYG iframe preview on /admin/sider. The screen renderer
+              itself uses fluid CSS and does NOT read these values. */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label htmlFor="screen_width" className="text-sm font-medium">
+                Bredde (px)
+              </label>
+              <input
+                id="screen_width"
+                name="screen_width"
+                type="number"
+                min={320}
+                max={7680}
+                step={1}
+                defaultValue={defaultValues?.screen_width ?? 1920}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="screen_height" className="text-sm font-medium">
+                Højde (px)
+              </label>
+              <input
+                id="screen_height"
+                name="screen_height"
+                type="number"
+                min={240}
+                max={4320}
+                step={1}
+                defaultValue={defaultValues?.screen_height ?? 1080}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Forventet visningsareal — bruges kun til forhåndsvisning på
+            /admin/sider, ikke til faktisk rendering.
+          </p>
         </div>
       )}
 

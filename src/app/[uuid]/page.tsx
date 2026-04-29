@@ -162,7 +162,7 @@ export default async function ForsidePage({ params }: Props) {
     return <ScreenRouter guestId={guest.id}>{content}</ScreenRouter>
   }
 
-  const [invitation, definitions, answers, performances, assignments, memories] =
+  const [invitation, definitions, answers, performances, assignments, memories, wishlistsRow] =
     await Promise.all([
       getMyInvitation(),
       getChoiceDefinitions(),
@@ -170,7 +170,20 @@ export default async function ForsidePage({ params }: Props) {
       getMyPerformances(),
       getMyAssignments(),
       getMyMemories(),
+      supabaseServer
+        .from('guests')
+        .select('id, name, wishlist_url')
+        .eq('type', 'main_person')
+        .not('wishlist_url', 'is', null)
+        .order('name'),
     ])
+
+  const wishlists =
+    (wishlistsRow.data as Array<{
+      id: string
+      name: string
+      wishlist_url: string | null
+    }> | null) ?? []
 
   const answersMap: Record<string, string> = Object.fromEntries(
     answers
@@ -209,6 +222,25 @@ export default async function ForsidePage({ params }: Props) {
       <MemoryIndicator uuid={uuid} count={memories.length} />
       <ChoiceAnswers definitions={definitions} initialAnswers={answersMap} />
       <PerformanceManager initialPerformances={performances} />
+      {wishlists.length > 0 && (
+        <section className="rounded-lg border p-4 space-y-2">
+          <h2 className="text-base font-semibold">Ønskesedler</h2>
+          <ul className="space-y-1">
+            {wishlists.map((w) => (
+              <li key={w.id}>
+                <a
+                  href={w.wishlist_url ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline"
+                >
+                  {w.name} ↗
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {invitationAccepted && <InvitationAccept initial={invitation} />}
     </div>
   )

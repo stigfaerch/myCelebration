@@ -43,6 +43,8 @@ export default async function SiderPage() {
     is_primary_screen: s.is_primary_screen,
     cycle_seconds: s.screen_cycle_seconds,
     transition: s.screen_transition,
+    screen_width: s.screen_width,
+    screen_height: s.screen_height,
     visibleCount: countsById.get(s.id)?.visible ?? 0,
     hiddenCount: countsById.get(s.id)?.hidden ?? 0,
   }))

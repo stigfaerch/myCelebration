@@ -225,12 +225,83 @@ export function ScreenCycleSettingsAutoSave({
   )
 }
 
+interface ScreenPreviewFrameProps {
+  screenUuid: string
+  width: number
+  height: number
+}
+
+/**
+ * WYSIWYG forhåndsvisning af skærm-render. Rammer iframen med skærmens
+ * forventede pixel-dimensioner og CSS-skalérer den ned til admin-kortets
+ * bredde, så proportionerne matcher den faktiske visning.
+ *
+ * Caveat: hvis admin-browseren ikke har `guest_password`-cookien sat, viser
+ * iframen `/{screenUuid}/enter` (kodeordsporten). Det er forventet adfærd —
+ * efter admin har indtastet kodeordet én gang, genindlæser iframen og viser
+ * skærm-renderet. Vi forsøger ikke at omgå auth-laget her; resolutionen
+ * er ren admin-curation-metadata og påvirker ikke render-pathen.
+ */
+function ScreenPreviewFrame({
+  screenUuid,
+  width,
+  height,
+}: ScreenPreviewFrameProps) {
+  // Admin-card content width. Hardcoded fordi `ScreenCycleSettingsCard`
+  // renderes i et 2-kolonne grid (sm:grid-cols-2) med fast padding; målet
+  // er en visuel hint, ikke perfekt pixel-respons.
+  const TARGET_WIDTH = 600
+  // Skalér aldrig op — hvis skærmen er mindre end target, vis 1:1.
+  const scale = Math.min(1, TARGET_WIDTH / width)
+  const previewHref = `/${screenUuid}`
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          Forhåndsvisning ({width}×{height}, skaleret {Math.round(scale * 100)}
+          %)
+        </span>
+        <a
+          href={previewHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          Åbn i nyt vindue ↗
+        </a>
+      </div>
+      <div
+        className="overflow-hidden rounded border border-border"
+        style={{ width: width * scale, height: height * scale }}
+      >
+        <iframe
+          src={previewHref}
+          title={`Skærm-forhåndsvisning ${screenUuid}`}
+          loading="lazy"
+          style={{
+            width,
+            height,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            border: 'none',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 interface ScreenCardProps {
   screenId: string
   screenName: string
   isPrimary: boolean
   defaultCycleSeconds: number
   defaultTransition: ScreenTransition
+  /** Pixel-bredde for iframe-forhåndsvisning. Curation-only. */
+  screenWidth: number
+  /** Pixel-højde for iframe-forhåndsvisning. Curation-only. */
+  screenHeight: number
   visibleCount: number
   hiddenCount: number
   onError?: (message: string) => void
@@ -245,6 +316,8 @@ export function ScreenCycleSettingsCard({
   isPrimary,
   defaultCycleSeconds,
   defaultTransition,
+  screenWidth,
+  screenHeight,
   visibleCount,
   hiddenCount,
   onError,
@@ -273,6 +346,11 @@ export function ScreenCycleSettingsCard({
           </em>
         )}
       </p>
+      <ScreenPreviewFrame
+        screenUuid={screenId}
+        width={screenWidth}
+        height={screenHeight}
+      />
     </div>
   )
 }
@@ -285,6 +363,10 @@ interface SectionProps {
     is_primary_screen: boolean
     cycle_seconds: number
     transition: ScreenTransition
+    /** Pixel-bredde til WYSIWYG-forhåndsvisning. */
+    screen_width: number
+    /** Pixel-højde til WYSIWYG-forhåndsvisning. */
+    screen_height: number
     visibleCount: number
     hiddenCount: number
   }[]
@@ -328,6 +410,8 @@ export function ScreenCycleSettingsSection({ screens }: SectionProps) {
             isPrimary={s.is_primary_screen}
             defaultCycleSeconds={s.cycle_seconds}
             defaultTransition={s.transition}
+            screenWidth={s.screen_width}
+            screenHeight={s.screen_height}
             visibleCount={s.visibleCount}
             hiddenCount={s.hiddenCount}
             onError={setError}

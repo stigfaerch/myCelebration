@@ -12,12 +12,18 @@ export interface ScreenGuest {
   is_primary_screen: boolean
   screen_cycle_seconds: number
   screen_transition: ScreenTransition
+  /** Admin-curation metadata; preview-only. See guests.ts. */
+  screen_width: number
+  /** Admin-curation metadata; preview-only. See guests.ts. */
+  screen_height: number
 }
 
 export async function getScreenGuests(): Promise<ScreenGuest[]> {
   const { data, error } = await supabaseServer
     .from('guests')
-    .select('id, name, is_primary_screen, screen_cycle_seconds, screen_transition')
+    .select(
+      'id, name, is_primary_screen, screen_cycle_seconds, screen_transition, screen_width, screen_height'
+    )
     .eq('type', 'screen')
     .order('name')
   if (error) throw new Error('Failed to load screen guests')
@@ -28,6 +34,8 @@ export async function getScreenGuests(): Promise<ScreenGuest[]> {
     is_primary_screen: boolean
     screen_cycle_seconds: number | null
     screen_transition: string | null
+    screen_width: number | null
+    screen_height: number | null
   }
 
   return ((data ?? []) as Row[]).map((row) => {
@@ -40,6 +48,8 @@ export async function getScreenGuests(): Promise<ScreenGuest[]> {
       is_primary_screen: row.is_primary_screen,
       screen_cycle_seconds: row.screen_cycle_seconds ?? 8,
       screen_transition: transition,
+      screen_width: row.screen_width ?? 1920,
+      screen_height: row.screen_height ?? 1080,
     }
   })
 }

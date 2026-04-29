@@ -17,6 +17,21 @@ export interface Guest {
   screen_cycle_seconds: number
   /** Per-screen transition style. Only meaningful when type='screen'. */
   screen_transition: ScreenTransition
+  /**
+   * Admin-curation metadata: expected viewport width in pixels for the
+   * physical screen. Only meaningful when type='screen'. Drives the WYSIWYG
+   * iframe preview on /admin/sider. The actual screen render path uses
+   * fluid CSS (vh/vw, clamp()) and does NOT read this value.
+   */
+  screen_width: number
+  /** See `screen_width`. Height counterpart. */
+  screen_height: number
+  /**
+   * Optional wishlist URL. Only meaningful when type='main_person'; the
+   * admin form gates the field by type. Rendered on /{uuid} for non-screen
+   * guests.
+   */
+  wishlist_url: string | null
   relation: string | null
   age: number | null
   gender: string | null
@@ -51,6 +66,33 @@ function readCycleSettingsFromForm(formData: FormData): {
   return { screen_cycle_seconds: seconds, screen_transition: t }
 }
 
+/**
+ * Coerce form-data into validated screen-resolution values. Defense-in-depth
+ * — the DB also enforces these bounds via CHECK constraints. Returns null
+ * when fields are absent (non-screen guests). Throws on invalid input.
+ *
+ * Bounds match the SQL CHECK constraints in 017_screen_resolution.sql:
+ * 320×240 (lower) to 7680×4320 (upper, 8K).
+ */
+function readScreenResolutionFromForm(formData: FormData): {
+  screen_width: number
+  screen_height: number
+} | null {
+  const rawWidth = formData.get('screen_width')
+  const rawHeight = formData.get('screen_height')
+  if (rawWidth === null && rawHeight === null) return null
+
+  const width = Math.round(Number(rawWidth ?? 1920))
+  if (!Number.isFinite(width) || width < 320 || width > 7680) {
+    throw new Error('screen_width skal være mellem 320 og 7680')
+  }
+  const height = Math.round(Number(rawHeight ?? 1080))
+  if (!Number.isFinite(height) || height < 240 || height > 4320) {
+    throw new Error('screen_height skal være mellem 240 og 4320')
+  }
+  return { screen_width: width, screen_height: height }
+}
+
 export async function getGuests(): Promise<Guest[]> {
   const { data, error } = await supabaseServer
     .from('guests')
@@ -73,6 +115,12 @@ export async function getGuest(id: string): Promise<Guest> {
 export async function createGuestAction(formData: FormData) {
   const type = formData.get('type') as GuestType
   const cycle = type === 'screen' ? readCycleSettingsFromForm(formData) : null
+  const resolution =
+    type === 'screen' ? readScreenResolutionFromForm(formData) : null
+  const wishlist_url =
+    type === 'main_person'
+      ? ((formData.get('wishlist_url') as string)?.trim() || null)
+      : null
   const payload = {
     name: formData.get('name') as string,
     type,
@@ -84,9 +132,12 @@ export async function createGuestAction(formData: FormData) {
     task_participation: (formData.get('task_participation') as TaskParticipation) || 'none',
     default_page: type === 'screen' ? ((formData.get('default_page') as string) || null) : null,
     is_primary_screen: type === 'screen' ? formData.get('is_primary_screen') === 'on' : false,
-    // Cycle settings are only persisted for screens; the guests-table defaults
-    // (8 / 'fade') cover non-screen rows automatically.
+    wishlist_url,
+    // Cycle settings + resolution are only persisted for screens; the
+    // guests-table defaults (8 / 'fade' / 1920×1080) cover non-screen rows
+    // automatically.
     ...(cycle ?? {}),
+    ...(resolution ?? {}),
   }
   const { error } = await supabaseServer.from('guests').insert(payload)
   if (error) throw new Error(error.message)
@@ -96,6 +147,12 @@ export async function createGuestAction(formData: FormData) {
 export async function updateGuestAction(id: string, formData: FormData) {
   const type = formData.get('type') as GuestType
   const cycle = type === 'screen' ? readCycleSettingsFromForm(formData) : null
+  const resolution =
+    type === 'screen' ? readScreenResolutionFromForm(formData) : null
+  const wishlist_url =
+    type === 'main_person'
+      ? ((formData.get('wishlist_url') as string)?.trim() || null)
+      : null
   const payload = {
     name: formData.get('name') as string,
     type,
@@ -107,7 +164,9 @@ export async function updateGuestAction(id: string, formData: FormData) {
     task_participation: (formData.get('task_participation') as TaskParticipation) || 'none',
     default_page: type === 'screen' ? ((formData.get('default_page') as string) || null) : null,
     is_primary_screen: type === 'screen' ? formData.get('is_primary_screen') === 'on' : false,
+    wishlist_url,
     ...(cycle ?? {}),
+    ...(resolution ?? {}),
   }
   const { error } = await supabaseServer.from('guests').update(payload).eq('id', id)
   if (error) throw new Error(error.message)
