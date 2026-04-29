@@ -7,15 +7,16 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-// Legacy eager-exported anon client (used by storage upload components).
-// Retained for backwards compatibility with existing callers.
-export const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
-
 // Singleton browser client for Realtime subscriptions.
 // Lazily instantiated so the same socket is reused across components.
+//
+// IMPORTANT: there must be exactly ONE browser-side Supabase client per page.
+// Two clients with the same anon key share the same GoTrue storage key
+// ("sb-<ref>-auth-token") and clobber each other's session state — that
+// surfaces as "Multiple GoTrueClient instances detected" in the console
+// AND silently breaks Realtime channel auth so postgres_changes events
+// never arrive. Do not add another `createClient(url, anonKey)` to this file
+// (or to any other module on the client side) — always import this getter.
 let browserClient: SupabaseClient | null = null
 
 export function getSupabaseBrowserClient(): SupabaseClient {
