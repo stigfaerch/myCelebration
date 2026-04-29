@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { supabaseServer } from '@/lib/supabase/server'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
@@ -6,6 +7,8 @@ import {
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
 import { GuestList } from '@/components/guest/GuestList'
+
+export const metadata: Metadata = { title: 'Deltagere' }
 
 export default async function DeltagerePage() {
   await resolveGuest()

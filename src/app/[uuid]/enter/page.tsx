@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+
+export const metadata: Metadata = { title: 'Adgang' }
 
 interface Props {
   params: Promise<{ uuid: string }>

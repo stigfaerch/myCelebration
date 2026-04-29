@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getMyPhotos } from '@/lib/actions/guest/photos'
@@ -6,6 +7,8 @@ import {
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
 import { PhotoGrid } from '@/components/guest/PhotoGrid'
+
+export const metadata: Metadata = { title: 'Billeder' }
 
 interface Props {
   params: Promise<{ uuid: string }>

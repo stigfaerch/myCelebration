@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 import { resolveGuest } from '@/lib/auth/resolveGuest'
@@ -7,6 +8,17 @@ import { isPageVisibleNow } from '@/lib/guest/navItems'
 
 interface Props {
   params: Promise<{ uuid: string; slug: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const { data } = await supabaseServer
+    .from('pages')
+    .select('title')
+    .eq('slug', slug)
+    .maybeSingle()
+  const title = (data as { title?: string } | null)?.title
+  return { title: title ?? '' }
 }
 
 interface PageRow {

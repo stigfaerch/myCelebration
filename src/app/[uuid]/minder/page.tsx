@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getMyMemories } from '@/lib/actions/guest/memories'
@@ -6,6 +7,8 @@ import {
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
 import { MemoryManager } from '@/components/guest/MemoryManager'
+
+export const metadata: Metadata = { title: 'Minder' }
 
 export default async function MinderPage() {
   await resolveGuest()

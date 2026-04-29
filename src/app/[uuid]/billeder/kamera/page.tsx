@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { assertNotScreen } from '@/lib/auth/resolveGuest'
 import {
@@ -5,6 +6,8 @@ import {
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
 import { Camera } from '@/components/guest/Camera'
+
+export const metadata: Metadata = { title: 'Kamera' }
 
 interface Props {
   params: Promise<{ uuid: string }>

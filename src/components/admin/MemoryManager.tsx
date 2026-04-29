@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Heart, Pencil, Trash2, Monitor } from 'lucide-react'
+import { Heart, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,16 +14,27 @@ import {
   type MemoryType,
   type MemoryUpdateFormData,
 } from '@/lib/actions/memories'
-import { showOnPrimaryScreen, clearScreenOverride } from '@/lib/actions/screen'
+import { clearScreenOverride } from '@/lib/actions/screen'
+import type { ScreenInfo } from '@/components/admin/ScreenAssignmentToggle'
+import {
+  ScreenOverrideToggle,
+  type ScreenOverrideStatus,
+} from '@/components/admin/ScreenOverrideToggle'
 
 export interface ActiveMemoryOverride {
   screenId: string
   screenName: string
+  /**
+   * The memory id that is currently the override on this screen. Used by
+   * per-row toggles to know which row is currently the active override.
+   */
+  overrideRefId: string
 }
 
 interface Props {
   initialMemories: Memory[]
   activeOverrides?: ActiveMemoryOverride[]
+  screens?: ScreenInfo[]
 }
 
 const TYPE_LABELS: Record<MemoryType, string> = {
@@ -133,7 +144,17 @@ function MemoryEditForm({ memory, onSave, onCancel }: MemoryEditFormProps) {
   )
 }
 
-export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) {
+export function MemoryManager({
+  initialMemories,
+  activeOverrides = [],
+  screens = [],
+}: Props) {
+  // Project the prop down to the shape ScreenOverrideToggle expects.
+  const overrideStatuses: ScreenOverrideStatus[] = activeOverrides.map((o) => ({
+    screenId: o.screenId,
+    kind: 'memory',
+    overrideRefId: o.overrideRefId,
+  }))
   const router = useRouter()
   const [memories, setMemories] = useState<Memory[]>(initialMemories)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -211,18 +232,6 @@ export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) 
       try {
         await deleteMemory(memory.id)
         setMemories((prev) => prev.filter((m) => m.id !== memory.id))
-        router.refresh()
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
-      }
-    })
-  }
-
-  function handleShowOnScreen(memory: Memory) {
-    setActionError(null)
-    startTransition(async () => {
-      try {
-        await showOnPrimaryScreen('memory', memory.id)
         router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
@@ -360,16 +369,15 @@ export function MemoryManager({ initialMemories, activeOverrides = [] }: Props) 
                         fill={memory.is_favorite ? 'currentColor' : 'none'}
                       />
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
+                    <ScreenOverrideToggle
+                      kind="memory"
+                      refId={memory.id}
+                      refLabel={memory.title}
+                      screens={screens}
+                      activeOverrides={overrideStatuses}
+                      onError={setActionError}
                       disabled={isPending}
-                      onClick={() => handleShowOnScreen(memory)}
-                      aria-label={`Vis ${memory.title} på skærm`}
-                    >
-                      <Monitor className="h-4 w-4" />
-                    </Button>
+                    />
                     <Button
                       type="button"
                       variant="ghost"

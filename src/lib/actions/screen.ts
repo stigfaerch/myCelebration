@@ -54,41 +54,6 @@ export async function getScreenGuests(): Promise<ScreenGuest[]> {
   })
 }
 
-export async function showOnPrimaryScreen(
-  overrideType: ScreenOverrideType,
-  refId: string
-): Promise<void> {
-  await assertAdmin()
-
-  const { data: primary, error: primaryError } = await supabaseServer
-    .from('guests')
-    .select('id')
-    .eq('type', 'screen')
-    .eq('is_primary_screen', true)
-    .maybeSingle()
-
-  if (primaryError) throw new Error('Failed to resolve primary screen')
-  if (!primary) throw new Error('No primary screen configured')
-
-  const { error } = await supabaseServer
-    .from('screen_state')
-    .upsert(
-      {
-        guest_id: primary.id,
-        current_override: overrideType,
-        override_ref_id: refId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'guest_id' }
-    )
-  if (error) throw new Error('Failed to set screen override')
-
-  revalidatePath('/admin/sider')
-  revalidatePath('/admin/billeder')
-  revalidatePath('/admin/minder')
-  revalidatePath('/admin/galleri')
-}
-
 export async function setScreenOverride(
   screenGuestId: string,
   overrideType: ScreenOverrideType,
@@ -134,21 +99,33 @@ export async function clearScreenOverridesFor(
 
 /**
  * Returns one entry per screen guest whose `current_override` is currently
- * `'photo'` or `'memory'`. Used by PhotoManager / MemoryManager to render the
- * "Tilbage til skærm-rotation" banner when a single-item override is masking
- * the screen's normal page-cycle rotation.
+ * `'photo'` or `'memory'`. Used by:
+ *
+ * - PhotoManager / MemoryManager to render the "Tilbage til skærm-rotation"
+ *   banner when a single-item override is masking the screen's normal
+ *   page-cycle rotation.
+ * - The per-row `<ScreenOverrideToggle>` to render which screen currently
+ *   shows THIS specific photo/memory (matched by `overrideRefId === refId`).
  *
  * Read-only; no admin gate required because the calling pages are themselves
- * admin-gated and we only return public-shape rows (screen guest id, name,
- * override kind). No `override_ref_id` is returned.
+ * admin-gated. The returned `overrideRefId` is the photo/memory id that the
+ * screen is currently showing — needed for per-row diffing.
  */
 export async function getActiveSingleOverrides(): Promise<
-  Array<{ screenId: string; screenName: string; kind: 'photo' | 'memory' }>
+  Array<{
+    screenId: string
+    screenName: string
+    kind: 'photo' | 'memory'
+    overrideRefId: string
+  }>
 > {
   const { data, error } = await supabaseServer
     .from('screen_state')
-    .select('guest_id, current_override, guests!inner(id, name, type)')
+    .select(
+      'guest_id, current_override, override_ref_id, guests!inner(id, name, type)'
+    )
     .in('current_override', ['photo', 'memory'])
+    .not('override_ref_id', 'is', null)
 
   if (error) throw new Error('Failed to load active screen overrides')
 
@@ -159,6 +136,7 @@ export async function getActiveSingleOverrides(): Promise<
   type Row = {
     guest_id: string
     current_override: 'photo' | 'memory'
+    override_ref_id: string | null
     guests: EmbeddedGuest | EmbeddedGuest[] | null
   }
 
@@ -167,11 +145,13 @@ export async function getActiveSingleOverrides(): Promise<
       const guest = Array.isArray(row.guests) ? row.guests[0] ?? null : row.guests
       return { row, guest }
     })
-    .filter(({ guest }) => guest?.type === 'screen')
+    .filter(({ row, guest }) => guest?.type === 'screen' && row.override_ref_id !== null)
     .map(({ row, guest }) => ({
       screenId: row.guest_id,
       screenName: guest?.name ?? 'Skærm',
       kind: row.current_override,
+      // Non-null asserted via the filter above.
+      overrideRefId: row.override_ref_id as string,
     }))
 }
 

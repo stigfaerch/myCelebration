@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import {
   getMyAssignments,
@@ -12,6 +13,8 @@ import {
 } from '@/lib/actions/staticItemVisibility'
 import { TaskList } from '@/components/guest/TaskList'
 import { IncomingSwapList } from '@/components/guest/IncomingSwapList'
+
+export const metadata: Metadata = { title: 'Opgaver' }
 
 interface Props {
   params: Promise<{ uuid: string }>

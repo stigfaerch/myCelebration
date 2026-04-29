@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getGalleryItems } from '@/lib/actions/guest/gallery'
@@ -7,6 +8,8 @@ import {
 } from '@/lib/actions/staticItemVisibility'
 import { GalleryHorizontal } from '@/components/guest/GalleryHorizontal'
 import { GalleryVertical } from '@/components/guest/GalleryVertical'
+
+export const metadata: Metadata = { title: 'Galleri' }
 
 export default async function GalleriPage() {
   await resolveGuest()

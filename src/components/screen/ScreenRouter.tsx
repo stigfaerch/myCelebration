@@ -12,7 +12,7 @@ interface Props {
 /**
  * Client-side realtime subscriber for screen-type guests.
  *
- * Subscribes to two tables:
+ * Subscribes to three tables:
  *   - `screen_state` filtered to this guest — picks up override changes
  *     (Vis på skærm / Tilbage til skærm-rotation, photo/memory single-render).
  *   - `gallery_config` (singleton, no filter) — picks up admin changes on
@@ -20,8 +20,15 @@ interface Props {
  *     so screens currently in the gallery default render path re-render
  *     without a manual reload. The cycler/page-mode paths also re-render on
  *     this signal, which is acceptable noise (admin saves rarely).
+ *   - `screen_page_assignments` filtered to this guest — picks up the FIRST
+ *     INSERT into the cycler for this screen. Without this subscription on
+ *     ScreenRouter, screens currently in gallery-default mode (zero
+ *     assignments) wouldn't notice when admin assigns a page or static item:
+ *     `ScreenPageCycle` only mounts when the cycler is already active and
+ *     carries its own redundant subscription, but ScreenRouter is always
+ *     mounted so it covers the empty→non-empty transition.
  *
- * Both subscriptions trigger `router.refresh()` to re-render the server
+ * All three subscriptions trigger `router.refresh()` to re-render the server
  * component tree. Children are passed through unchanged.
  */
 export function ScreenRouter({ guestId, children }: Props) {
@@ -56,6 +63,18 @@ export function ScreenRouter({ guestId, children }: Props) {
           schema: 'public',
           table: 'gallery_config',
           // Singleton table — no filter; any change refreshes all screens.
+        },
+        () => {
+          router.refresh()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'screen_page_assignments',
+          filter: `screen_guest_id=eq.${guestId}`,
         },
         () => {
           router.refresh()

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Heart, Trash2, Monitor } from 'lucide-react'
+import { Eye, EyeOff, Heart, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,16 +12,27 @@ import {
   deletePhoto,
   type Photo,
 } from '@/lib/actions/photos'
-import { showOnPrimaryScreen, clearScreenOverride } from '@/lib/actions/screen'
+import { clearScreenOverride } from '@/lib/actions/screen'
+import type { ScreenInfo } from '@/components/admin/ScreenAssignmentToggle'
+import {
+  ScreenOverrideToggle,
+  type ScreenOverrideStatus,
+} from '@/components/admin/ScreenOverrideToggle'
 
 export interface ActivePhotoOverride {
   screenId: string
   screenName: string
+  /**
+   * The photo id that is currently the override on this screen. Used by
+   * per-row toggles to know which row is currently the active override.
+   */
+  overrideRefId: string
 }
 
 interface Props {
   initialPhotos: Photo[]
   activeOverrides?: ActivePhotoOverride[]
+  screens?: ScreenInfo[]
 }
 
 function fromDatetimeLocal(value: string): string | null {
@@ -38,7 +49,18 @@ function formatDate(iso: string): string {
   })
 }
 
-export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
+export function PhotoManager({
+  initialPhotos,
+  activeOverrides = [],
+  screens = [],
+}: Props) {
+  // Project the prop down to the shape ScreenOverrideToggle expects.
+  // Stable reference per render is fine — the toggle re-derives via useMemo.
+  const overrideStatuses: ScreenOverrideStatus[] = activeOverrides.map((o) => ({
+    screenId: o.screenId,
+    kind: 'photo',
+    overrideRefId: o.overrideRefId,
+  }))
   const router = useRouter()
   const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
   const [filterAfter, setFilterAfter] = useState('')
@@ -159,18 +181,6 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
       try {
         await deletePhoto(photo.id)
         setPhotos((prev) => prev.filter((p) => p.id !== photo.id))
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
-      }
-    })
-  }
-
-  function handleShowOnScreen(photo: Photo) {
-    setActionError(null)
-    startTransition(async () => {
-      try {
-        await showOnPrimaryScreen('photo', photo.id)
-        router.refresh()
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Ukendt fejl')
       }
@@ -316,16 +326,15 @@ export function PhotoManager({ initialPhotos, activeOverrides = [] }: Props) {
                       fill={photo.is_favorite ? 'currentColor' : 'none'}
                     />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
+                  <ScreenOverrideToggle
+                    kind="photo"
+                    refId={photo.id}
+                    refLabel={`Billede fra ${photo.guests?.name ?? 'ukendt gæst'} (${formatDate(photo.taken_at)})`}
+                    screens={screens}
+                    activeOverrides={overrideStatuses}
+                    onError={setActionError}
                     disabled={isPending}
-                    onClick={() => handleShowOnScreen(photo)}
-                    aria-label="Vis på skærm"
-                  >
-                    <Monitor className="h-4 w-4" />
-                  </Button>
+                  />
                   <Button
                     type="button"
                     variant="ghost"

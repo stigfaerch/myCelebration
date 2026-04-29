@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getProgramItems, type ProgramItem } from '@/lib/actions/program'
@@ -5,6 +6,8 @@ import {
   getStaticItemVisibilityMap,
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
+
+export const metadata: Metadata = { title: 'Program' }
 
 interface PerformanceJoin {
   id: string
