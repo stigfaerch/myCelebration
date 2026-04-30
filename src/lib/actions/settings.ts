@@ -14,6 +14,13 @@ import {
   type NavOrderItem,
   type StaticNavKey,
 } from '@/lib/guest/navItems'
+import {
+  ADMIN_NAV_KEYS,
+  isAdminNavKey,
+  parseAdminNavOrder,
+  reconcileAdminNavOrder,
+  type AdminNavKey,
+} from '@/lib/admin/nav'
 import { getStaticItemVisibilityMap } from '@/lib/actions/staticItemVisibility'
 
 interface AppSettingsRow {
@@ -429,4 +436,75 @@ export async function removePageFromNavOrder(pageId: string): Promise<void> {
     .update({ nav_order: next })
     .eq('id', settingsId)
   if (updateError) throw new Error(updateError.message)
+}
+
+// =============================================================================
+// Admin nav order
+// =============================================================================
+
+/**
+ * Read the admin nav order, reconciled against the canonical key list.
+ * Always returns every known admin nav key — drift is fixed in-memory so the
+ * sidebar is never empty even on first load before the admin saves anything.
+ *
+ * If migration 019 hasn't been applied yet (column missing) we fall back to
+ * the canonical order rather than crash the entire admin shell. The save
+ * action will still surface a real error if the admin tries to persist.
+ */
+export async function getAdminNavOrder(): Promise<AdminNavKey[]> {
+  const { data, error } = await supabaseServer
+    .from('app_settings')
+    .select('admin_nav_order')
+    .single()
+  if (error) {
+    return reconcileAdminNavOrder([])
+  }
+  const stored = parseAdminNavOrder((data as { admin_nav_order: unknown }).admin_nav_order)
+  return reconcileAdminNavOrder(stored)
+}
+
+/**
+ * Persist a new admin nav order. Validates that the input is a permutation
+ * of the canonical key set — no extras, no missing keys, no duplicates.
+ */
+export async function updateAdminNavOrder(order: AdminNavKey[]): Promise<void> {
+  await assertAdmin()
+
+  if (!Array.isArray(order)) {
+    throw new Error('Ugyldig rækkefølge: forventer en liste')
+  }
+  if (order.length !== ADMIN_NAV_KEYS.length) {
+    throw new Error('Ugyldig rækkefølge: forkert antal elementer')
+  }
+  const seen = new Set<AdminNavKey>()
+  for (const k of order) {
+    if (!isAdminNavKey(k)) {
+      throw new Error(`Ukendt nøgle: ${String(k)}`)
+    }
+    if (seen.has(k)) {
+      throw new Error(`Duplikeret nøgle: ${k}`)
+    }
+    seen.add(k)
+  }
+  for (const k of ADMIN_NAV_KEYS) {
+    if (!seen.has(k)) {
+      throw new Error(`Mangler nøgle: ${k}`)
+    }
+  }
+
+  const { data: existing } = await supabaseServer
+    .from('app_settings')
+    .select('id')
+    .single()
+  if (!existing) throw new Error('App settings not found')
+
+  const { error } = await supabaseServer
+    .from('app_settings')
+    .update({ admin_nav_order: order })
+    .eq('id', (existing as { id: string }).id)
+  if (error) throw new Error(error.message)
+
+  // The admin layout reads admin_nav_order on every admin route, so revalidate
+  // the entire admin tree at the layout level.
+  revalidatePath('/admin', 'layout')
 }

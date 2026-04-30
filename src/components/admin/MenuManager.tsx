@@ -257,6 +257,7 @@ export function MenuManager({
       )}
 
       <DndContext
+        id="menu-manager-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}

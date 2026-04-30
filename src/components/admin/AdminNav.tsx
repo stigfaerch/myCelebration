@@ -13,10 +13,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { ADMIN_NAV_META, type AdminNavKey } from '@/lib/admin/nav'
 
 interface NavItem {
   href: string
   label: string
+  /**
+   * Stable key — the client looks up the matching lucide icon via
+   * ADMIN_NAV_META. We don't pass the icon component itself because
+   * React component references are not serializable across the
+   * server/client boundary.
+   */
+  key: AdminNavKey
 }
 
 interface AdminNavProps {
@@ -36,15 +44,23 @@ export function AdminNav({ items, adminLabel, openMenuLabel }: AdminNavProps) {
 
   const navList = (
     <nav className="p-2 space-y-1">
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className="block rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
-        >
-          {item.label}
-        </Link>
-      ))}
+      {items.map(({ href, label, key }) => {
+        const Icon = ADMIN_NAV_META[key].icon
+        const active =
+          href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+        return (
+          <Link
+            key={key}
+            href={href}
+            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground ${
+              active ? 'bg-accent text-accent-foreground font-medium' : ''
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        )
+      })}
     </nav>
   )
 
