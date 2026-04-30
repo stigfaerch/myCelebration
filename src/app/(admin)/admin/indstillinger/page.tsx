@@ -1,6 +1,7 @@
 import { getAppSettings, getAdminNavOrder } from '@/lib/actions/settings'
 import { SmsTemplateEditor } from '@/components/admin/SmsTemplateEditor'
 import { AdminMenuOrderEditor } from '@/components/admin/AdminMenuOrderEditor'
+import { FontSizeEditor } from '@/components/admin/FontSizeEditor'
 
 export default async function IndstillingerPage() {
   const [settings, adminNavOrder] = await Promise.all([
@@ -28,6 +29,15 @@ export default async function IndstillingerPage() {
           Træk for at ændre rækkefølgen af punkterne i admin-menuen.
         </p>
         <AdminMenuOrderEditor initialOrder={adminNavOrder} />
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-lg font-medium mb-1">Skriftstørrelser</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Justerer skriftstørrelsen i alt rich-text-indhold (sider, festinfo,
+          skærmvisning). Anbefalet område: 12 – 64 px for brødtekst.
+        </p>
+        <FontSizeEditor initial={settings.fontSizes} />
       </section>
     </div>
   )

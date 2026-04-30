@@ -130,3 +130,27 @@
     @apply font-sans;
   }
 }
+
+/* RichTextEditor — column break marker visualisation. The display path
+   strips these nodes; this rule only affects the editor surface so the
+   admin can see where the document will split into columns. */
+.column-break-marker {
+  border: 0;
+  border-top: 2px dashed oklch(0.708 0 0);
+  margin: 1.25rem 0;
+  position: relative;
+  height: 0;
+}
+.column-break-marker::before {
+  content: 'Kolonneskift';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  padding: 0 0.5rem;
+  text-transform: uppercase;
+}

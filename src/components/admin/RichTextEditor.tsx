@@ -2,6 +2,9 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect } from 'react'
+import { Columns2 } from 'lucide-react'
+
+import { ColumnBreak } from '@/lib/tiptap/columnBreak'
 
 interface Props {
   value?: Record<string, unknown> | null  // TipTap JSON
@@ -12,7 +15,7 @@ interface Props {
 export function RichTextEditor({ value, onChange, placeholder: _placeholder }: Props) {
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit],
+    extensions: [StarterKit, ColumnBreak],
     content: value ?? '',
     editorProps: {
       attributes: {
@@ -85,6 +88,17 @@ export function RichTextEditor({ value, onChange, placeholder: _placeholder }: P
           className={`rounded px-2 py-1 text-xs ${editor?.isActive('orderedList') ? 'bg-accent' : 'hover:bg-accent'}`}
         >
           1.
+        </button>
+        <span className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={() => editor?.chain().focus().insertColumnBreak().run()}
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+          aria-label="Indsæt kolonneskift"
+          title="Indsæt kolonneskift — splitter siden i flere kolonner ved visning"
+        >
+          <Columns2 className="h-3.5 w-3.5" />
+          Kolonneskift
         </button>
       </div>
       <EditorContent editor={editor} />

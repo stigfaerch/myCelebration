@@ -21,18 +21,27 @@ import {
   reconcileAdminNavOrder,
   type AdminNavKey,
 } from '@/lib/admin/nav'
+import {
+  DEFAULT_FONT_SIZES,
+  clampFontSize,
+  type FontSizes,
+} from '@/lib/admin/fontSizes'
 import { getStaticItemVisibilityMap } from '@/lib/actions/staticItemVisibility'
 
 interface AppSettingsRow {
   id: string
   sms_template: string
   nav_order: unknown
+  font_size_p?: number | null
+  font_size_h1?: number | null
+  font_size_h2?: number | null
 }
 
 export interface AppSettings {
   id: string
   sms_template: string
   nav_order: NavOrderItem[]
+  fontSizes: FontSizes
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -46,6 +55,31 @@ export async function getAppSettings(): Promise<AppSettings> {
     id: row.id,
     sms_template: row.sms_template,
     nav_order: parseNavOrder(row.nav_order),
+    fontSizes: {
+      p: clampFontSize(row.font_size_p, DEFAULT_FONT_SIZES.p),
+      h1: clampFontSize(row.font_size_h1, DEFAULT_FONT_SIZES.h1),
+      h2: clampFontSize(row.font_size_h2, DEFAULT_FONT_SIZES.h2),
+    },
+  }
+}
+
+/**
+ * Lightweight font-size getter for callers that only need the rich-text
+ * sizes (e.g. the root layout's global style emission). Returns defaults
+ * if migration 020 hasn't been applied yet, so the layout doesn't crash
+ * pre-migration.
+ */
+export async function getFontSizes(): Promise<FontSizes> {
+  const { data, error } = await supabaseServer
+    .from('app_settings')
+    .select('font_size_p, font_size_h1, font_size_h2')
+    .single()
+  if (error) return { ...DEFAULT_FONT_SIZES }
+  const row = data as Pick<AppSettingsRow, 'font_size_p' | 'font_size_h1' | 'font_size_h2'>
+  return {
+    p: clampFontSize(row.font_size_p, DEFAULT_FONT_SIZES.p),
+    h1: clampFontSize(row.font_size_h1, DEFAULT_FONT_SIZES.h1),
+    h2: clampFontSize(row.font_size_h2, DEFAULT_FONT_SIZES.h2),
   }
 }
 
@@ -60,6 +94,44 @@ export async function updateSmsTemplate(template: string) {
     .update({ sms_template: template })
     .eq('id', existing.id)
   if (error) throw new Error(error.message)
+  revalidatePath('/admin/indstillinger')
+}
+
+/**
+ * Persist new rich-text font sizes. Values are clamped server-side to
+ * `FONT_SIZE_BOUNDS` before write. The root layout reads these on every
+ * request and emits a global `<style>` so any RichTextDisplay output
+ * picks up the new values.
+ */
+export async function updateFontSizes(input: FontSizes): Promise<void> {
+  await assertAdmin()
+
+  const next: FontSizes = {
+    p: clampFontSize(input.p, DEFAULT_FONT_SIZES.p),
+    h1: clampFontSize(input.h1, DEFAULT_FONT_SIZES.h1),
+    h2: clampFontSize(input.h2, DEFAULT_FONT_SIZES.h2),
+  }
+
+  const { data: existing } = await supabaseServer
+    .from('app_settings')
+    .select('id')
+    .single()
+  if (!existing) throw new Error('App settings not found')
+
+  const { error } = await supabaseServer
+    .from('app_settings')
+    .update({
+      font_size_p: next.p,
+      font_size_h1: next.h1,
+      font_size_h2: next.h2,
+    })
+    .eq('id', (existing as { id: string }).id)
+  if (error) throw new Error(error.message)
+
+  // Sizes affect the global <style> in the root layout, which is
+  // re-evaluated when ANY route revalidates. Revalidate the root layout
+  // (and the admin page) so the change shows up immediately.
+  revalidatePath('/', 'layout')
   revalidatePath('/admin/indstillinger')
 }
 
