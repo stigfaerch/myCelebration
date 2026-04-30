@@ -3,11 +3,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
-import { isPageVisibleNow, isStaticNavKey } from '@/lib/guest/navItems'
-import {
-  getStaticItemVisibilityMap,
-  type StaticItemVisibility,
-} from '@/lib/actions/staticItemVisibility'
+import { isStaticNavKey } from '@/lib/guest/navItems'
 import type { PageSummary } from '@/lib/actions/pages'
 
 export type ScreenTransition = 'fade' | 'slide' | 'none'
@@ -130,19 +126,6 @@ function rowToMixed(row: RawMixedAssignmentRow): MixedAssignment | null {
   return null
 }
 
-function isStaticVisibleNow(
-  staticKey: string,
-  map: Record<string, StaticItemVisibility>
-): boolean {
-  const entry = map[staticKey]
-  if (!entry) return true
-  return isPageVisibleNow({
-    is_active: entry.is_active,
-    visible_from: entry.visible_from,
-    visible_until: entry.visible_until,
-  })
-}
-
 function rowToAssignment(row: RawAssignmentRow): ScreenAssignment | null {
   if (!row.pages) return null
   if (!row.page_id) return null
@@ -219,39 +202,25 @@ export async function getAssignmentsMapByPage(): Promise<
 }
 
 /**
- * Per-screen rotation count: how many of a screen's assigned pages are
- * currently visible (active + within window) and how many are hidden. Used
- * by the cycle-settings UI to show "I rotation: N sider (P sider er skjult
- * lige nu)". Public — no admin assertion since it does not leak PII.
+ * Per-screen rotation count: how many pages are assigned to this screen.
+ * Screens bypass guest-facing visibility (see
+ * `getVisibleScreenAssignmentsMixed`), so every assigned page rotates.
+ * The shape `{ visible, hidden }` is preserved for backwards compat with
+ * the cycle-settings UI; `hidden` is always 0.
  */
 export async function getRotationCountsForScreen(
   screenGuestId: string
 ): Promise<{ visible: number; hidden: number }> {
   // Audit (migration 011 / Plan 08-02): existing UI shows page-rotation
   // counts only — preserve that semantics with a `kind='page'` filter.
-  // Wave 2 plan 08-05 may add a separate mixed-counter helper if the cycle
-  // settings UI grows to surface static-item counts.
-  const all = await supabaseServer
+  const { count, error } = await supabaseServer
     .from('screen_page_assignments')
-    .select(ASSIGNMENT_SELECT)
+    .select('*', { count: 'exact', head: true })
     .eq('screen_guest_id', screenGuestId)
     .eq('kind', 'page')
-  if (all.error) throw new Error('Failed to load assignments for rotation count')
+  if (error) throw new Error('Failed to load assignments for rotation count')
 
-  const rows = (all.data ?? []) as unknown as RawAssignmentRow[]
-  let visible = 0
-  let hidden = 0
-  for (const r of rows) {
-    if (!r.pages) continue
-    const ok = isPageVisibleNow({
-      is_active: r.pages.is_active,
-      visible_from: r.pages.visible_from,
-      visible_until: r.pages.visible_until,
-    })
-    if (ok) visible++
-    else hidden++
-  }
-  return { visible, hidden }
+  return { visible: count ?? 0, hidden: 0 }
 }
 
 /**
@@ -277,10 +246,13 @@ export async function hasAnyScreenAssignments(
 }
 
 /**
- * Currently-visible assignments for a screen, ordered by sort_order.
- * Used by the screen render path AND by the client cycler when refetching
- * after a realtime tick. Visibility filtering happens server-side so the
- * rule is consistent with `/p/[slug]` and the bottom-nav.
+ * Assignments for a screen, ordered by sort_order.
+ *
+ * Screens intentionally bypass page visibility (`is_active`,
+ * `visible_from`, `visible_until`). Those flags gate guest-facing surfaces
+ * (bottom-nav, /p/[slug]); for screens the assignment itself IS the gate
+ * — admin assigns explicitly per screen. Double-gating made it impossible
+ * to activate a still-hidden page on a screen.
  */
 export async function getVisibleScreenAssignments(
   screenGuestId: string
@@ -300,13 +272,6 @@ export async function getVisibleScreenAssignments(
   return rows
     .map(rowToAssignment)
     .filter((a): a is ScreenAssignment => a !== null)
-    .filter((a) =>
-      isPageVisibleNow({
-        is_active: a.page.is_active,
-        visible_from: a.page.visible_from,
-        visible_until: a.page.visible_until,
-      })
-    )
 }
 
 /**
@@ -637,16 +602,14 @@ export async function getScreenAssignmentsMixed(
 }
 
 /**
- * Currently-visible mixed assignments for a screen, ordered by sort_order.
- * Used by the screen render path (Wave 2 plan 08-05's cycler refactor).
+ * Mixed assignments for a screen, ordered by sort_order. Used by the
+ * screen render path (Wave 2 plan 08-05's cycler refactor).
  *
- * Visibility filtering:
- *   - `kind='page'` rows: filtered by `isPageVisibleNow(page)`, identical to
- *     the existing `getVisibleScreenAssignments` semantics.
- *   - `kind='static'` rows: filtered by the static-item visibility map
- *     (Plan 08-01's `getStaticItemVisibilityMap`). Static keys with no
- *     visibility record are treated as fully visible (preserves the
- *     "absence == visible" default the visibility table is built around).
+ * Screens intentionally bypass guest-facing visibility (page is_active /
+ * visible_from / visible_until + static_item_settings). Those gate the
+ * bottom-nav and /p/[slug]; for screens the assignment IS the gate —
+ * admin pins items per screen explicitly. Double-gating made it
+ * impossible to display a still-hidden page on a screen.
  *
  * Note: this is NOT admin-gated — the screen render path runs without an
  * admin cookie. Mirrors `getVisibleScreenAssignments`.
@@ -654,33 +617,21 @@ export async function getScreenAssignmentsMixed(
 export async function getVisibleScreenAssignmentsMixed(
   screenGuestId: string
 ): Promise<MixedAssignment[]> {
-  // Fetch assignments and visibility map in parallel — they're independent
-  // queries against different tables.
-  const [{ data, error }, staticVisibility] = await Promise.all([
-    supabaseServer
-      .from('screen_page_assignments')
-      .select(MIXED_ASSIGNMENT_SELECT)
-      .eq('screen_guest_id', screenGuestId)
-      .order('sort_order'),
-    getStaticItemVisibilityMap(),
-  ])
+  // Screens bypass page + static-item visibility. The guest-facing
+  // visibility flags (page.is_active / visible_from / visible_until and
+  // static_item_settings) gate the bottom-nav and /p/[slug]; for screens,
+  // assignment IS the gate. Filtering here would silently drop items
+  // admin has explicitly pinned to a screen (e.g. activating a page that
+  // is not yet visible to guests).
+  const { data, error } = await supabaseServer
+    .from('screen_page_assignments')
+    .select(MIXED_ASSIGNMENT_SELECT)
+    .eq('screen_guest_id', screenGuestId)
+    .order('sort_order')
   if (error) throw new Error('Failed to load mixed screen assignments')
 
   const rows = (data ?? []) as unknown as RawMixedAssignmentRow[]
-  const mapped = rows
-    .map(rowToMixed)
-    .filter((a): a is MixedAssignment => a !== null)
-
-  return mapped.filter((a) => {
-    if (a.kind === 'page') {
-      return isPageVisibleNow({
-        is_active: a.page.is_active,
-        visible_from: a.page.visible_from,
-        visible_until: a.page.visible_until,
-      })
-    }
-    return isStaticVisibleNow(a.static_key, staticVisibility)
-  })
+  return rows.map(rowToMixed).filter((a): a is MixedAssignment => a !== null)
 }
 
 /**
