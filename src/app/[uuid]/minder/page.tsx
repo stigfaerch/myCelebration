@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { Monitor } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getMyMemories } from '@/lib/actions/guest/memories'
 import {
@@ -20,8 +20,8 @@ export default async function MinderPage() {
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-semibold">Mine minder</h1>
-      <div className="flex items-start gap-2 rounded-md border bg-muted/50 p-3 text-sm text-muted-foreground">
-        <Monitor className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>Dine minder kan blive vist på en skærm i løbet af festen.</p>
       </div>
       <MemoryManager initialMemories={memories} />
