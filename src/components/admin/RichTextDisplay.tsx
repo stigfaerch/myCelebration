@@ -5,6 +5,14 @@ import { ColumnBreak } from '@/lib/tiptap/columnBreak'
 
 interface Props {
   content: Record<string, unknown> | null
+  /**
+   * Render with the @tailwindcss/typography `prose-invert` palette so text
+   * reads on a dark background. Used by the screen renderers (ScreenPage,
+   * ScreenPageCycle) which sit on `bg-slate-950`. Without this flag the
+   * inner prose div would re-establish the default (dark) color and the
+   * ancestor's `prose-invert` would lose against it.
+   */
+  invert?: boolean
 }
 
 interface DocNode {
@@ -22,21 +30,28 @@ const COLUMN_GRID_CLASS: Record<number, string> = {
   4: 'sm:grid-cols-4',
 }
 
-function renderSegment(nodes: DocNode[], key: number): React.ReactElement {
+function renderSegment(
+  nodes: DocNode[],
+  key: number,
+  invert: boolean
+): React.ReactElement {
   const html = generateHTML(
     { type: 'doc', content: nodes } as Parameters<typeof generateHTML>[0],
     EXTENSIONS as unknown as Parameters<typeof generateHTML>[1]
   )
+  const className = invert
+    ? 'prose prose-sm prose-invert max-w-none'
+    : 'prose prose-sm max-w-none'
   return (
     <div
       key={key}
-      className="prose prose-sm max-w-none"
+      className={className}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )
 }
 
-export function RichTextDisplay({ content }: Props) {
+export function RichTextDisplay({ content, invert = false }: Props) {
   if (!content) return null
 
   const doc = content as DocNode
@@ -64,7 +79,7 @@ export function RichTextDisplay({ content }: Props) {
   // children: a doc containing only column-break nodes would otherwise
   // hit `generateHTML` with the unknown-output node and throw.
   if (segments.length <= 1) {
-    return renderSegment(segments[0] ?? [], 0)
+    return renderSegment(segments[0] ?? [], 0, invert)
   }
 
   const cols = Math.min(segments.length, 4)
@@ -72,7 +87,7 @@ export function RichTextDisplay({ content }: Props) {
 
   return (
     <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
-      {segments.map((seg, i) => renderSegment(seg, i))}
+      {segments.map((seg, i) => renderSegment(seg, i, invert))}
     </div>
   )
 }

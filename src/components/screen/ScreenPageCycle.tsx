@@ -54,8 +54,8 @@ function CycleItemView({ item }: { item: MixedScreenItem }) {
             {item.title}
           </h1>
           {item.content && (
-            <div className="prose prose-invert prose-lg max-w-none">
-              <RichTextDisplay content={item.content} />
+            <div className="w-full">
+              <RichTextDisplay content={item.content} invert />
             </div>
           )}
         </div>

@@ -20,8 +20,8 @@ export function ScreenPage({ page }: Props) {
           {page.title}
         </h1>
         {page.content && (
-          <div className="prose prose-invert prose-lg max-w-none">
-            <RichTextDisplay content={page.content} />
+          <div className="w-full">
+            <RichTextDisplay content={page.content} invert />
           </div>
         )}
       </div>
