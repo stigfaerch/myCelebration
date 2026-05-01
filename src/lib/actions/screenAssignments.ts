@@ -18,7 +18,10 @@ export interface ScreenAssignment {
   id: string
   page_id: string
   sort_order: number
-  page: PageSummary & { content: Record<string, unknown> | null }
+  page: PageSummary & {
+        content: Record<string, unknown> | null
+        max_width?: string | null
+      }
 }
 
 /**
@@ -40,7 +43,10 @@ export type MixedAssignment =
       kind: 'page'
       id: string
       sort_order: number
-      page: PageSummary & { content: Record<string, unknown> | null }
+      page: PageSummary & {
+        content: Record<string, unknown> | null
+        max_width?: string | null
+      }
     }
   | {
       kind: 'static'
@@ -113,6 +119,7 @@ function rowToMixed(row: RawMixedAssignmentRow): MixedAssignment | null {
         visible_until: row.pages.visible_until,
         sort_order: row.pages.sort_order,
         created_at: row.pages.created_at,
+        max_width: row.pages.max_width ?? null,
       },
     }
   }
