@@ -140,13 +140,19 @@ export default async function ForsidePage({ params }: Props) {
     if (override?.current_override === 'page' && override.override_ref_id) {
       const { data: pageRow } = await supabaseServer
         .from('pages')
-        .select('title, content')
+        .select('title, content, max_width')
         .eq('id', override.override_ref_id)
         .maybeSingle()
       if (pageRow) {
         content = (
           <ScreenPage
-            page={pageRow as { title: string; content: Record<string, unknown> | null }}
+            page={
+              pageRow as {
+                title: string
+                content: Record<string, unknown> | null
+                max_width?: string | null
+              }
+            }
           />
         )
       }

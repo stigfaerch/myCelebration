@@ -198,7 +198,8 @@ export function PageForm({ page, onSave, onCancel }: Props) {
           ))}
         </select>
         <p className="text-xs text-muted-foreground">
-          Styrer hvor bred siden er på gæste-visningen (/{'{uuid}'}/p/{'{slug}'}).
+          Styrer hvor bred siden er, når den vises på en skærm. Påvirker ikke
+          gæste-visningen.
         </p>
       </div>
 

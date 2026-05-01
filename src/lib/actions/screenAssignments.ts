@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
 import { isStaticNavKey } from '@/lib/guest/navItems'
+import { coercePageMaxWidth } from '@/lib/admin/pageMaxWidth'
 import type { PageSummary } from '@/lib/actions/pages'
 
 export type ScreenTransition = 'fade' | 'slide' | 'none'
@@ -84,6 +85,7 @@ interface RawMixedAssignmentRow {
         visible_until: string | null
         sort_order: number
         created_at: string
+        max_width?: string | null
       }
     | null
 }
@@ -92,7 +94,7 @@ const ASSIGNMENT_SELECT =
   'id, page_id, sort_order, pages (id, slug, title, content, is_active, visible_from, visible_until, sort_order, created_at)'
 
 const MIXED_ASSIGNMENT_SELECT =
-  'id, kind, page_id, static_key, sort_order, pages (id, slug, title, content, is_active, visible_from, visible_until, sort_order, created_at)'
+  'id, kind, page_id, static_key, sort_order, pages (id, slug, title, content, is_active, visible_from, visible_until, sort_order, created_at, max_width)'
 
 function rowToMixed(row: RawMixedAssignmentRow): MixedAssignment | null {
   if (row.kind === 'page') {
@@ -653,6 +655,8 @@ export type MixedScreenItem =
       id: string
       title: string
       content: Record<string, unknown> | null
+      /** Per-page max-width Tailwind suffix (`'2xl'` … `'7xl'`, `'full'`). */
+      maxWidth: string
     }
   | {
       kind: 'static'
@@ -758,11 +762,13 @@ export async function getHydratedMixedScreenItems(
   const hydrated = await Promise.all(
     visible.map(async (a): Promise<MixedScreenItem | null> => {
       if (a.kind === 'page') {
+        const rawMaxWidth = (a.page as { max_width?: unknown }).max_width
         return {
           kind: 'page',
           id: a.page.id,
           title: a.page.title,
           content: a.page.content,
+          maxWidth: coercePageMaxWidth(rawMaxWidth),
         }
       }
       const data = await hydrateStaticItemData(a.static_key)

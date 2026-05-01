@@ -3,6 +3,10 @@
 import * as React from 'react'
 
 import { RichTextDisplay } from '@/components/admin/RichTextDisplay'
+import {
+  PAGE_MAX_WIDTH_CLASS,
+  coercePageMaxWidth,
+} from '@/lib/admin/pageMaxWidth'
 import { ScreenDefault } from '@/components/screen/ScreenDefault'
 import { ScreenDeltagere } from '@/components/screen/ScreenDeltagere'
 import { ScreenHvor, type ScreenHvorEvent } from '@/components/screen/ScreenHvor'
@@ -47,9 +51,13 @@ const TRANSITION_MS = 400
  */
 function CycleItemView({ item }: { item: MixedScreenItem }) {
   if (item.kind === 'page') {
+    const widthClass =
+      PAGE_MAX_WIDTH_CLASS[coercePageMaxWidth(item.maxWidth)]
     return (
       <div className="absolute inset-0 overflow-auto bg-slate-950 text-white">
-        <div className="mx-auto flex min-h-full max-w-4xl flex-col items-center justify-center px-8 py-12">
+        <div
+          className={`mx-auto flex min-h-full ${widthClass} flex-col items-center justify-center px-8 py-12`}
+        >
           <h1 className="mb-8 text-center text-5xl font-bold tracking-tight">
             {item.title}
           </h1>
