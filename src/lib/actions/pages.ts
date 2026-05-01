@@ -4,6 +4,7 @@ import { supabaseServer } from '@/lib/supabase/server'
 import { assertAdmin } from '@/lib/auth/assertAdmin'
 import { clearScreenOverridesFor } from '@/lib/actions/screen'
 import { appendPageToNavOrder, removePageFromNavOrder } from '@/lib/actions/settings'
+import { coercePageMaxWidth, type PageMaxWidth } from '@/lib/admin/pageMaxWidth'
 
 export interface PageSummary {
   id: string
@@ -18,6 +19,7 @@ export interface PageSummary {
 
 export interface Page extends PageSummary {
   content: Record<string, unknown> | null
+  max_width: PageMaxWidth
 }
 
 export interface PageFormData {
@@ -27,6 +29,7 @@ export interface PageFormData {
   is_active: boolean
   visible_from: string | null
   visible_until: string | null
+  max_width: PageMaxWidth
 }
 
 export async function getPages(): Promise<PageSummary[]> {
@@ -46,7 +49,11 @@ export async function getPage(id: string): Promise<Page | null> {
     .eq('id', id)
     .maybeSingle()
   if (error) throw new Error('Failed to load page')
-  return (data as Page | null) ?? null
+  if (!data) return null
+  // max_width may be missing pre-migration; normalise so callers can rely
+  // on it being a valid PageMaxWidth.
+  const row = data as Page & { max_width?: unknown }
+  return { ...row, max_width: coercePageMaxWidth(row.max_width) }
 }
 
 
@@ -68,6 +75,7 @@ export async function createPage(formData: PageFormData): Promise<void> {
       is_active: formData.is_active,
       visible_from: formData.visible_from,
       visible_until: formData.visible_until,
+      max_width: coercePageMaxWidth(formData.max_width),
       sort_order,
     })
     .select('id')
@@ -93,6 +101,7 @@ export async function updatePage(id: string, formData: PageFormData): Promise<vo
       is_active: formData.is_active,
       visible_from: formData.visible_from,
       visible_until: formData.visible_until,
+      max_width: coercePageMaxWidth(formData.max_width),
     })
     .eq('id', id)
   if (error) throw new Error('Failed to update page')

@@ -5,6 +5,10 @@ import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { supabaseServer } from '@/lib/supabase/server'
 import { RichTextDisplay } from '@/components/admin/RichTextDisplay'
 import { isPageVisibleNow } from '@/lib/guest/navItems'
+import {
+  PAGE_MAX_WIDTH_CLASS,
+  coercePageMaxWidth,
+} from '@/lib/admin/pageMaxWidth'
 
 interface Props {
   params: Promise<{ uuid: string; slug: string }>
@@ -29,6 +33,7 @@ interface PageRow {
   is_active: boolean
   visible_from: string | null
   visible_until: string | null
+  max_width?: string | null
 }
 
 export default async function GuestDynamicPage({ params }: Props) {
@@ -39,7 +44,7 @@ export default async function GuestDynamicPage({ params }: Props) {
 
   const { data, error } = await supabaseServer
     .from('pages')
-    .select('id, slug, title, content, is_active, visible_from, visible_until')
+    .select('*')
     .eq('slug', slug)
     .maybeSingle()
   if (error) throw new Error(error.message)
@@ -48,8 +53,10 @@ export default async function GuestDynamicPage({ params }: Props) {
   if (!page) notFound()
   if (!isPageVisibleNow(page)) notFound()
 
+  const maxWidthClass = PAGE_MAX_WIDTH_CLASS[coercePageMaxWidth(page.max_width)]
+
   return (
-    <div className="p-4 space-y-4">
+    <div className={`mx-auto w-full p-4 space-y-4 ${maxWidthClass}`}>
       <h1 className="text-2xl font-semibold">{page.title}</h1>
       <RichTextDisplay content={page.content} />
     </div>

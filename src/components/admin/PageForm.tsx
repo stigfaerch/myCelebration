@@ -5,6 +5,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import { createPage, updatePage, type Page, type PageFormData } from '@/lib/actions/pages'
+import {
+  DEFAULT_PAGE_MAX_WIDTH,
+  PAGE_MAX_WIDTH_KEYS,
+  PAGE_MAX_WIDTH_LABEL,
+  isPageMaxWidth,
+  type PageMaxWidth,
+} from '@/lib/admin/pageMaxWidth'
 
 interface Props {
   page?: Page | null
@@ -47,6 +54,11 @@ export function PageForm({ page, onSave, onCancel }: Props) {
   const [isActive, setIsActive] = useState(page?.is_active ?? false)
   const [visibleFrom, setVisibleFrom] = useState(toDatetimeLocal(page?.visible_from ?? null))
   const [visibleUntil, setVisibleUntil] = useState(toDatetimeLocal(page?.visible_until ?? null))
+  const [maxWidth, setMaxWidth] = useState<PageMaxWidth>(
+    page?.max_width && isPageMaxWidth(page.max_width)
+      ? page.max_width
+      : DEFAULT_PAGE_MAX_WIDTH
+  )
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -83,6 +95,7 @@ export function PageForm({ page, onSave, onCancel }: Props) {
       is_active: isActive,
       visible_from: fromDatetimeLocal(visibleFrom),
       visible_until: fromDatetimeLocal(visibleUntil),
+      max_width: maxWidth,
     }
 
     startTransition(async () => {
@@ -165,6 +178,28 @@ export function PageForm({ page, onSave, onCancel }: Props) {
             onChange={(e) => setVisibleUntil(e.target.value)}
           />
         </div>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="page-max-width">Maks. bredde</Label>
+        <select
+          id="page-max-width"
+          value={maxWidth}
+          onChange={(e) => {
+            const next = e.target.value
+            if (isPageMaxWidth(next)) setMaxWidth(next)
+          }}
+          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {PAGE_MAX_WIDTH_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {PAGE_MAX_WIDTH_LABEL[key]}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Styrer hvor bred siden er på gæste-visningen (/{'{uuid}'}/p/{'{slug}'}).
+        </p>
       </div>
 
       <div className="flex gap-2">
