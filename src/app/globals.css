@@ -131,9 +131,11 @@
   }
 }
 
-/* RichTextEditor — column break marker visualisation. The display path
-   strips these nodes; this rule only affects the editor surface so the
-   admin can see where the document will split into columns. */
+/* RichTextEditor — column marker visualisation. The display path strips
+   these markers by walking the doc tree, so these rules only affect the
+   editor surface. The renderer handles mobile collapse via Tailwind
+   `grid grid-cols-1 sm:grid-cols-N` so columns stack on narrow screens
+   and grid out at ≥640px. */
 .column-break-marker {
   border: 0;
   border-top: 2px dashed oklch(0.708 0 0);
@@ -142,7 +144,6 @@
   height: 0;
 }
 .column-break-marker::before {
-  content: 'Kolonneskift';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -153,4 +154,13 @@
   letter-spacing: 0.04em;
   padding: 0 0.5rem;
   text-transform: uppercase;
+}
+.column-break-marker--start::before {
+  content: 'Ny kolonne';
+}
+.column-break-marker--end {
+  border-top-style: solid;
+}
+.column-break-marker--end::before {
+  content: 'Slut kolonne-blok';
 }

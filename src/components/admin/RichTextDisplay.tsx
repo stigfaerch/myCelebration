@@ -1,7 +1,7 @@
 import { generateHTML } from '@tiptap/html'
 import StarterKit from '@tiptap/starter-kit'
 
-import { ColumnBreak } from '@/lib/tiptap/columnBreak'
+import { ColumnBreak, ColumnBlockEnd } from '@/lib/tiptap/columnBreak'
 
 interface Props {
   content: Record<string, unknown> | null
@@ -21,33 +21,100 @@ interface DocNode {
   [k: string]: unknown
 }
 
-const EXTENSIONS = [StarterKit, ColumnBreak] as const
+const EXTENSIONS = [StarterKit, ColumnBreak, ColumnBlockEnd] as const
+
+/**
+ * One rendered region. A `flow` region renders linearly; a `columns`
+ * region renders as a CSS grid that collapses to a single column on
+ * mobile.
+ */
+type Region =
+  | { kind: 'flow'; nodes: DocNode[] }
+  | { kind: 'columns'; columns: DocNode[][] }
 
 const COLUMN_GRID_CLASS: Record<number, string> = {
   1: 'grid-cols-1',
   2: 'sm:grid-cols-2',
   3: 'sm:grid-cols-3',
   4: 'sm:grid-cols-4',
+  5: 'sm:grid-cols-5',
+  6: 'sm:grid-cols-6',
 }
 
-function renderSegment(
-  nodes: DocNode[],
-  key: number,
-  invert: boolean
-): React.ReactElement {
-  const html = generateHTML(
+/**
+ * Walk top-level children and group them according to columnBreak +
+ * columnBlockEnd markers. The walker maintains a tiny state machine:
+ *
+ *   - `flow` mode: nodes accumulate into the current flow region.
+ *     A `columnBreak` opens a column block (closes flow region first
+ *     if non-empty). A `columnBlockEnd` is meaningless and dropped.
+ *
+ *   - `columns` mode: nodes accumulate into the current column.
+ *     A `columnBreak` starts a new column. A `columnBlockEnd` closes
+ *     the block (emits the columns region) and returns to flow mode.
+ *
+ * On end-of-document any open block is closed implicitly.
+ */
+function buildRegions(children: DocNode[]): Region[] {
+  const regions: Region[] = []
+  let mode: 'flow' | 'columns' = 'flow'
+  let flow: DocNode[] = []
+  let cols: DocNode[][] = []
+
+  const flushFlow = () => {
+    if (flow.length === 0) return
+    regions.push({ kind: 'flow', nodes: flow })
+    flow = []
+  }
+  const flushColumns = () => {
+    // Drop trailing empty columns (a trailing columnBreak right before
+    // the end marker would create one).
+    while (cols.length > 1 && cols[cols.length - 1].length === 0) cols.pop()
+    if (cols.length === 0) return
+    regions.push({ kind: 'columns', columns: cols })
+    cols = []
+  }
+
+  for (const node of children) {
+    const t = node?.type
+    if (mode === 'flow') {
+      if (t === 'columnBreak') {
+        flushFlow()
+        mode = 'columns'
+        cols = [[]]
+        continue
+      }
+      if (t === 'columnBlockEnd') {
+        // Stray end marker outside a block — ignore.
+        continue
+      }
+      flow.push(node)
+    } else {
+      // columns mode
+      if (t === 'columnBreak') {
+        cols.push([])
+        continue
+      }
+      if (t === 'columnBlockEnd') {
+        flushColumns()
+        mode = 'flow'
+        continue
+      }
+      cols[cols.length - 1].push(node)
+    }
+  }
+
+  // EOF: close whatever is open.
+  if (mode === 'columns') flushColumns()
+  else flushFlow()
+
+  return regions
+}
+
+function renderHtmlFromNodes(nodes: DocNode[]): string {
+  return generateHTML(
     { type: 'doc', content: nodes } as Parameters<typeof generateHTML>[0],
     EXTENSIONS as unknown as Parameters<typeof generateHTML>[1]
-  )
-  const className = invert
-    ? 'prose prose-sm prose-invert max-w-none'
-    : 'prose prose-sm max-w-none'
-  return (
-    <div
-      key={key}
-      className={className}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
   )
 }
 
@@ -56,38 +123,47 @@ export function RichTextDisplay({ content, invert = false }: Props) {
 
   const doc = content as DocNode
   const children = Array.isArray(doc.content) ? doc.content : []
+  const regions = buildRegions(children)
 
-  // Split top-level children at every columnBreak node. The break nodes
-  // themselves are discarded — they are markers, not content.
-  const segments: DocNode[][] = [[]]
-  for (const node of children) {
-    if (node?.type === 'columnBreak') {
-      segments.push([])
-      continue
-    }
-    segments[segments.length - 1].push(node)
+  // Empty doc — render an empty prose div so the caller's layout reserves
+  // the same space as a real (but empty) page.
+  if (regions.length === 0) {
+    const emptyClass = invert
+      ? 'prose prose-sm prose-invert max-w-none'
+      : 'prose prose-sm max-w-none'
+    return <div className={emptyClass} />
   }
 
-  // Drop empty leading/trailing segments so a stray break at the doc edges
-  // doesn't open an empty column.
-  while (segments.length > 1 && segments[0].length === 0) segments.shift()
-  while (segments.length > 1 && segments[segments.length - 1].length === 0)
-    segments.pop()
-
-  // Single column — render the (column-break-stripped) content without
-  // a grid wrapper. We must pass the cleaned segment, not the original
-  // children: a doc containing only column-break nodes would otherwise
-  // hit `generateHTML` with the unknown-output node and throw.
-  if (segments.length <= 1) {
-    return renderSegment(segments[0] ?? [], 0, invert)
-  }
-
-  const cols = Math.min(segments.length, 4)
-  const gridCols = COLUMN_GRID_CLASS[cols] ?? COLUMN_GRID_CLASS[2]
+  const proseClass = invert
+    ? 'prose prose-sm prose-invert max-w-none'
+    : 'prose prose-sm max-w-none'
 
   return (
-    <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
-      {segments.map((seg, i) => renderSegment(seg, i, invert))}
-    </div>
+    <>
+      {regions.map((region, idx) => {
+        if (region.kind === 'flow') {
+          return (
+            <div
+              key={idx}
+              className={proseClass}
+              dangerouslySetInnerHTML={{ __html: renderHtmlFromNodes(region.nodes) }}
+            />
+          )
+        }
+        const cols = Math.min(region.columns.length, 6)
+        const gridCols = COLUMN_GRID_CLASS[cols] ?? COLUMN_GRID_CLASS[2]
+        return (
+          <div key={idx} className={`grid grid-cols-1 ${gridCols} gap-6 my-4`}>
+            {region.columns.map((seg, i) => (
+              <div
+                key={i}
+                className={proseClass}
+                dangerouslySetInnerHTML={{ __html: renderHtmlFromNodes(seg) }}
+              />
+            ))}
+          </div>
+        )
+      })}
+    </>
   )
 }

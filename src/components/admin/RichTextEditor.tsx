@@ -2,9 +2,9 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect } from 'react'
-import { Columns2 } from 'lucide-react'
+import { Columns2, X } from 'lucide-react'
 
-import { ColumnBreak } from '@/lib/tiptap/columnBreak'
+import { ColumnBreak, ColumnBlockEnd } from '@/lib/tiptap/columnBreak'
 
 interface Props {
   value?: Record<string, unknown> | null  // TipTap JSON
@@ -15,7 +15,7 @@ interface Props {
 export function RichTextEditor({ value, onChange, placeholder: _placeholder }: Props) {
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit, ColumnBreak],
+    extensions: [StarterKit, ColumnBreak, ColumnBlockEnd],
     content: value ?? '',
     editorProps: {
       attributes: {
@@ -94,11 +94,21 @@ export function RichTextEditor({ value, onChange, placeholder: _placeholder }: P
           type="button"
           onClick={() => editor?.chain().focus().insertColumnBreak().run()}
           className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
-          aria-label="Indsæt kolonneskift"
-          title="Indsæt kolonneskift — splitter siden i flere kolonner ved visning"
+          aria-label="Indsæt ny kolonne"
+          title="Ny kolonne — første marker åbner blokken, hver efterfølgende starter en ny kolonne. Kollapser til én kolonne på mobil."
         >
           <Columns2 className="h-3.5 w-3.5" />
-          Kolonneskift
+          Ny kolonne
+        </button>
+        <button
+          type="button"
+          onClick={() => editor?.chain().focus().insertColumnBlockEnd().run()}
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+          aria-label="Slut kolonne-blok"
+          title="Slut kolonne-blok — alt herefter vises i normal flow igen."
+        >
+          <X className="h-3.5 w-3.5" />
+          Slut blok
         </button>
       </div>
       <EditorContent editor={editor} />

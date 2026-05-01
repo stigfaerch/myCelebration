@@ -1,25 +1,43 @@
 import { Node } from '@tiptap/core'
 
 /**
- * `columnBreak` — a void block-level node used to mark column boundaries
- * inside rich-text content. The renderer (`RichTextDisplay`) splits the
- * top-level document at these nodes and lays the resulting segments out
- * as a CSS grid:
+ * Two complementary marker nodes that drive multi-column layout in
+ * `RichTextDisplay` without requiring a real columns-block schema.
  *
- *   - 0 markers → 1 column (default flow)
- *   - 1 marker  → 2 columns
- *   - 2 markers → 3 columns
+ *   - `columnBreak`   → insert-column marker. The display walker opens a
+ *                       column block at the FIRST `columnBreak` it
+ *                       encounters and starts a new column at every
+ *                       subsequent `columnBreak` while the block is open.
  *
- * In the editor the node renders as an `<hr data-column-break>` styled to
- * read clearly as a column boundary (dashed line + label) so admins can
- * see where a split will happen. Persisted in TipTap JSON as
- * `{ type: 'columnBreak' }`.
+ *   - `columnBlockEnd` → close-block marker. Closes the active column
+ *                       block; everything after it falls back to single
+ *                       column flow. If the doc ends without one, the
+ *                       block is closed implicitly.
+ *
+ * This shape lets a doc mix single-column flow with one or more
+ * column-block sections of arbitrary column count, e.g.
+ *
+ *   intro paragraph
+ *   [columnBreak]
+ *   col 1
+ *   [columnBreak]
+ *   col 2
+ *   [columnBreak]
+ *   col 3
+ *   [columnBlockEnd]
+ *   outro paragraph
+ *
+ * The downside is that the editor surface still renders each marker
+ * as a horizontal divider rather than visually grouping content into
+ * columns — that trade-off is intentional.
  */
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     columnBreak: {
-      /** Insert a column break at the current selection. */
+      /** Insert a column-start marker at the current selection. */
       insertColumnBreak: () => ReturnType
+      /** Insert a column-block-end marker at the current selection. */
+      insertColumnBlockEnd: () => ReturnType
     }
   }
 }
@@ -40,10 +58,7 @@ export const ColumnBreak = Node.create({
       'hr',
       {
         'data-column-break': 'true',
-        // .column-break-marker is styled in globals.css for the editor
-        // surface; the display path slices the doc and discards these
-        // nodes so the class never reaches the rendered output.
-        class: 'column-break-marker',
+        class: 'column-break-marker column-break-marker--start',
       },
     ]
   },
@@ -54,6 +69,33 @@ export const ColumnBreak = Node.create({
         () =>
         ({ commands }) =>
           commands.insertContent({ type: this.name }),
+      // Defined on the same scope so a single namespace covers both nodes.
+      insertColumnBlockEnd:
+        () =>
+        ({ commands }) =>
+          commands.insertContent({ type: 'columnBlockEnd' }),
     }
+  },
+})
+
+export const ColumnBlockEnd = Node.create({
+  name: 'columnBlockEnd',
+  group: 'block',
+  selectable: true,
+  draggable: false,
+  atom: true,
+
+  parseHTML() {
+    return [{ tag: 'hr[data-column-block-end]' }]
+  },
+
+  renderHTML() {
+    return [
+      'hr',
+      {
+        'data-column-block-end': 'true',
+        class: 'column-break-marker column-break-marker--end',
+      },
+    ]
   },
 })
