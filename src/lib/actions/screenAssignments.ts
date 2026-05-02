@@ -720,13 +720,17 @@ async function hydrateStaticItemData(staticKey: string): Promise<unknown> {
     return { tasks: data ?? [] }
   }
   if (staticKey === 'program') {
-    const { data } = await supabaseServer
-      .from('program_items')
-      .select(
-        '*, performances(id, title, type, duration_minutes, guests(name))'
-      )
-      .order('sort_order')
-    return { items: data ?? [] }
+    const { getShowProgramTypeIcons } = await import('@/lib/actions/settings')
+    const [{ data }, showIcons] = await Promise.all([
+      supabaseServer
+        .from('program_items')
+        .select(
+          '*, performances(id, title, type, duration_minutes, guests(name))'
+        )
+        .order('sort_order'),
+      getShowProgramTypeIcons(),
+    ])
+    return { items: data ?? [], showIcons }
   }
   // Unknown / unsupported static key — defensive null so the cycler can
   // skip this slot rather than crashing.

@@ -2,10 +2,12 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { resolveGuest } from '@/lib/auth/resolveGuest'
 import { getProgramItems, type ProgramItem } from '@/lib/actions/program'
+import { getShowProgramTypeIcons } from '@/lib/actions/settings'
 import {
   getStaticItemVisibilityMap,
   isStaticItemVisibleNow,
 } from '@/lib/actions/staticItemVisibility'
+import { ProgramTypeIcon } from '@/lib/program/typeIcons'
 
 export const metadata: Metadata = { title: 'Program' }
 
@@ -21,22 +23,6 @@ interface PerformanceJoin {
 
 type ProgramRow = ProgramItem & {
   performances: PerformanceJoin | PerformanceJoin[] | null
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  break: 'Pause',
-  performance: 'Indslag',
-  info: 'Info',
-  ceremony: 'Ceremoni',
-  event: 'Begivenhed',
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  break: 'bg-gray-100 text-gray-700',
-  performance: 'bg-purple-100 text-purple-800',
-  info: 'bg-blue-100 text-blue-800',
-  ceremony: 'bg-amber-100 text-amber-800',
-  event: 'bg-muted text-muted-foreground',
 }
 
 function formatTime(iso: string | null): string {
@@ -60,13 +46,22 @@ function performanceTitle(p: PerformanceJoin | PerformanceJoin[] | null): string
   return first?.title ?? null
 }
 
-function ProgramItemRow({ item, indented = false }: { item: ProgramRow; indented?: boolean }) {
+function ProgramItemRow({
+  item,
+  indented = false,
+  showIcons,
+}: {
+  item: ProgramRow
+  indented?: boolean
+  showIcons: boolean
+}) {
   const time = formatTime(item.start_time)
   const performer = performerName(item.performances)
   const perfTitle = performanceTitle(item.performances)
   const subtitle = item.type === 'performance' && (perfTitle || performer)
     ? [perfTitle, performer].filter(Boolean).join(' · ')
     : null
+  const renderIcon = showIcons && item.type !== 'event' && item.type_icon
 
   return (
     <li
@@ -80,14 +75,14 @@ function ProgramItemRow({ item, indented = false }: { item: ProgramRow; indented
         ) : null}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {renderIcon ? (
+              <ProgramTypeIcon
+                iconKey={item.type_icon}
+                size={14}
+                className="text-muted-foreground shrink-0"
+              />
+            ) : null}
             <span className="font-medium text-sm">{item.title}</span>
-            {item.type !== 'event' && (
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${TYPE_COLORS[item.type] ?? ''}`}
-              >
-                {TYPE_LABELS[item.type] ?? item.type}
-              </span>
-            )}
             {item.show_duration && item.duration_minutes != null && (
               <span className="text-xs text-muted-foreground">{item.duration_minutes} min</span>
             )}
@@ -109,7 +104,10 @@ export default async function ProgramPage() {
   const visibilityMap = await getStaticItemVisibilityMap()
   if (!(await isStaticItemVisibleNow('program', visibilityMap))) notFound()
 
-  const items = (await getProgramItems()) as ProgramRow[] | null
+  const [items, showIcons] = await Promise.all([
+    getProgramItems() as Promise<ProgramRow[] | null>,
+    getShowProgramTypeIcons(),
+  ])
 
   const safe = items ?? []
   const childrenByParent = new Map<string, ProgramRow[]>()
@@ -134,11 +132,11 @@ export default async function ProgramPage() {
             return (
               <li key={item.id}>
                 <ul className="space-y-2">
-                  <ProgramItemRow item={item} />
+                  <ProgramItemRow item={item} showIcons={showIcons} />
                   {children.length > 0 && (
                     <ul className="space-y-2 mt-2">
                       {children.map((child) => (
-                        <ProgramItemRow key={child.id} item={child} indented />
+                        <ProgramItemRow key={child.id} item={child} indented showIcons={showIcons} />
                       ))}
                     </ul>
                   )}

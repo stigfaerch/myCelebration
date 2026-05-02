@@ -103,8 +103,8 @@ function CycleItemView({ item }: { item: MixedScreenItem }) {
       return <ScreenOpgaver tasks={data.tasks} />
     }
     case 'program': {
-      const data = item.data as { items: ScreenProgramRow[] }
-      return <ScreenProgram items={data.items} />
+      const data = item.data as { items: ScreenProgramRow[]; showIcons?: boolean }
+      return <ScreenProgram items={data.items} showIcons={data.showIcons ?? true} />
     }
     default: {
       // Defensive fallback for an unknown static_key (e.g., key removed from

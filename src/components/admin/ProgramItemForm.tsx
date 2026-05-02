@@ -3,6 +3,11 @@ import { useState, useTransition, useMemo, useRef } from 'react'
 import { getProgramItems, createProgramItem, updateProgramItem, type ProgramItemType } from '@/lib/actions/program'
 import { getPerformances } from '@/lib/actions/performances'
 import { Button } from '@/components/ui/button'
+import {
+  PROGRAM_TYPE_ICONS,
+  getDefaultIconKey,
+  isValidIconForType,
+} from '@/lib/program/typeIcons'
 
 type Items = Awaited<ReturnType<typeof getProgramItems>>
 type Performances = Awaited<ReturnType<typeof getPerformances>>
@@ -58,11 +63,21 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
   const [error, setError] = useState<string | null>(null)
   // Default Type to 'event' (Begivenhed) on new items — matches the DB
   // column default. When editing, preserve the existing type.
-  const [selectedType, setSelectedType] = useState<ProgramItemType>(
-    item?.type ?? 'event'
-  )
+  const initialType: ProgramItemType = item?.type ?? 'event'
+  const [selectedType, setSelectedType] = useState<ProgramItemType>(initialType)
+  const initialIconKey: string | null = (() => {
+    const stored = (item as { type_icon?: string | null } | undefined)?.type_icon ?? null
+    if (item) return isValidIconForType(initialType, stored) ? stored : null
+    return getDefaultIconKey(initialType)
+  })()
+  const [selectedIconKey, setSelectedIconKey] = useState<string | null>(initialIconKey)
   const titleRef = useRef<HTMLInputElement>(null)
   const durationRef = useRef<HTMLInputElement>(null)
+
+  function handleTypeChange(next: ProgramItemType) {
+    setSelectedType(next)
+    setSelectedIconKey(getDefaultIconKey(next))
+  }
 
   const topLevelItems = useMemo(
     () => items.filter((i) => i.parent_id === null),
@@ -102,9 +117,15 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
     const parent_id = parent_id_raw || null
     const notes = (fd.get('notes') as string).trim() || null
 
+    const type_icon =
+      type === 'event' || !isValidIconForType(type, selectedIconKey)
+        ? null
+        : selectedIconKey
+
     const formData = {
       title,
       type,
+      type_icon,
       start_time,
       duration_minutes,
       show_duration,
@@ -179,7 +200,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
           id="pi-type"
           name="type"
           value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value as ProgramItemType)}
+          onChange={(e) => handleTypeChange(e.target.value as ProgramItemType)}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
           {TYPE_OPTIONS.map((opt) => (
@@ -187,6 +208,46 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
           ))}
         </select>
       </div>
+
+      {selectedType !== 'event' && PROGRAM_TYPE_ICONS[selectedType].length > 0 && (
+        <div className="space-y-1">
+          <span className="text-sm font-medium">Ikon</span>
+          <div className="flex flex-wrap gap-2">
+            {PROGRAM_TYPE_ICONS[selectedType].map((opt) => {
+              const Icon = opt.Icon
+              const active = selectedIconKey === opt.key
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSelectedIconKey(opt.key)}
+                  aria-pressed={active}
+                  title={opt.label}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-input bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Icon size={18} aria-hidden />
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              onClick={() => setSelectedIconKey(null)}
+              aria-pressed={selectedIconKey === null}
+              className={`inline-flex h-9 items-center justify-center rounded-md border px-3 text-xs transition-colors ${
+                selectedIconKey === null
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-input bg-background text-foreground hover:bg-muted'
+              }`}
+            >
+              Ingen
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-1">
         <label htmlFor="pi-start-time" className="text-sm font-medium">Starttid</label>

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { ProgramTypeIcon } from '@/lib/program/typeIcons'
 
 /**
  * Screen-side program timeline, shown as a fullscreen rotation slot when an
@@ -25,6 +26,7 @@ export interface ScreenProgramRow {
   start_time: string | null
   duration_minutes: number | null
   type: string
+  type_icon: string | null
   parent_id: string | null
   notes: string | null
   performances: PerformanceJoin | PerformanceJoin[] | null
@@ -32,13 +34,7 @@ export interface ScreenProgramRow {
 
 interface Props {
   items: ScreenProgramRow[]
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  break: 'Pause',
-  performance: 'Indslag',
-  info: 'Info',
-  ceremony: 'Ceremoni',
+  showIcons?: boolean
 }
 
 function formatTime(iso: string | null): string {
@@ -68,9 +64,11 @@ function performanceTitle(p: PerformanceJoin | PerformanceJoin[] | null): string
 function ProgramRowView({
   item,
   indented,
+  showIcons,
 }: {
   item: ScreenProgramRow
   indented: boolean
+  showIcons: boolean
 }) {
   const time = formatTime(item.start_time)
   const performer = performerName(item.performances)
@@ -79,6 +77,7 @@ function ProgramRowView({
     item.type === 'performance' && (perfTitle || performer)
       ? [perfTitle, performer].filter(Boolean).join(' · ')
       : null
+  const renderIcon = showIcons && item.type !== 'event' && item.type_icon
 
   return (
     <li
@@ -92,10 +91,14 @@ function ProgramRowView({
             {time}
           </span>
         ) : null}
+        {renderIcon ? (
+          <ProgramTypeIcon
+            iconKey={item.type_icon}
+            size={28}
+            className="text-slate-200 shrink-0 self-center"
+          />
+        ) : null}
         <h2 className="text-3xl font-semibold tracking-tight">{item.title}</h2>
-        <span className="rounded-full bg-white/10 px-3 py-0.5 text-sm uppercase tracking-wide text-slate-200">
-          {TYPE_LABELS[item.type] ?? item.type}
-        </span>
         {item.duration_minutes != null ? (
           <span className="text-lg text-slate-300">
             {item.duration_minutes} min
@@ -114,7 +117,7 @@ function ProgramRowView({
   )
 }
 
-export function ScreenProgram({ items }: Props) {
+export function ScreenProgram({ items, showIcons = true }: Props) {
   const childrenByParent = new Map<string, ScreenProgramRow[]>()
   for (const item of items) {
     if (item.parent_id) {
@@ -142,7 +145,7 @@ export function ScreenProgram({ items }: Props) {
               return (
                 <li key={item.id}>
                   <ul className="space-y-3">
-                    <ProgramRowView item={item} indented={false} />
+                    <ProgramRowView item={item} indented={false} showIcons={showIcons} />
                     {children.length > 0 ? (
                       <ul className="space-y-3">
                         {children.map((child) => (
@@ -150,6 +153,7 @@ export function ScreenProgram({ items }: Props) {
                             key={child.id}
                             item={child}
                             indented
+                            showIcons={showIcons}
                           />
                         ))}
                       </ul>

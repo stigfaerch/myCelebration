@@ -35,6 +35,7 @@ interface AppSettingsRow {
   font_size_p?: number | null
   font_size_h1?: number | null
   font_size_h2?: number | null
+  show_program_type_icons?: boolean | null
 }
 
 export interface AppSettings {
@@ -42,6 +43,7 @@ export interface AppSettings {
   sms_template: string
   nav_order: NavOrderItem[]
   fontSizes: FontSizes
+  show_program_type_icons: boolean
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -60,6 +62,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       h1: clampFontSize(row.font_size_h1, DEFAULT_FONT_SIZES.h1),
       h2: clampFontSize(row.font_size_h2, DEFAULT_FONT_SIZES.h2),
     },
+    show_program_type_icons: row.show_program_type_icons ?? true,
   }
 }
 
@@ -81,6 +84,34 @@ export async function getFontSizes(): Promise<FontSizes> {
     h1: clampFontSize(row.font_size_h1, DEFAULT_FONT_SIZES.h1),
     h2: clampFontSize(row.font_size_h2, DEFAULT_FONT_SIZES.h2),
   }
+}
+
+export async function getShowProgramTypeIcons(): Promise<boolean> {
+  const { data, error } = await supabaseServer
+    .from('app_settings')
+    .select('show_program_type_icons')
+    .single()
+  if (error) return true
+  const row = data as Pick<AppSettingsRow, 'show_program_type_icons'>
+  return row.show_program_type_icons ?? true
+}
+
+export async function updateShowProgramTypeIcons(value: boolean): Promise<void> {
+  await assertAdmin()
+  const { data: existing } = await supabaseServer
+    .from('app_settings')
+    .select('id')
+    .single()
+  if (!existing) throw new Error('App settings not found')
+  const { error } = await supabaseServer
+    .from('app_settings')
+    .update({ show_program_type_icons: value })
+    .eq('id', (existing as { id: string }).id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/admin/indstillinger')
+  revalidatePath('/[uuid]/program', 'page')
+  revalidatePath('/[uuid]', 'layout')
 }
 
 export async function updateSmsTemplate(template: string) {

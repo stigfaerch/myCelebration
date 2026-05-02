@@ -12,6 +12,7 @@ export interface ProgramItem {
   duration_minutes: number | null
   show_duration: boolean
   type: ProgramItemType
+  type_icon: string | null
   performance_id: string | null
   sort_order: number
   parent_id: string | null
@@ -43,6 +44,7 @@ async function validateNesting(parentId: string | null | undefined) {
 export async function createProgramItem(formData: {
   title: string
   type: ProgramItemType
+  type_icon?: string | null
   start_time?: string | null
   duration_minutes?: number | null
   show_duration?: boolean
@@ -70,6 +72,7 @@ export async function createProgramItem(formData: {
 export async function updateProgramItem(id: string, formData: {
   title: string
   type: ProgramItemType
+  type_icon?: string | null
   start_time?: string | null
   duration_minutes?: number | null
   show_duration?: boolean
