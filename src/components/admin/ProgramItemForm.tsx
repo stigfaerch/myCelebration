@@ -24,9 +24,23 @@ const TYPE_OPTIONS: { value: ProgramItemType; label: string }[] = [
   { value: 'ceremony', label: 'Ceremoni' },
 ]
 
+// Convert a UTC ISO string to a local-clock `YYYY-MM-DDTHH:MM` for
+// <input type="datetime-local">. Using local accessors flips UTC -> wall time.
 function toDatetimeLocal(iso: string | null | undefined): string {
   if (!iso) return ''
-  return iso.slice(0, 16)
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Inverse: parse the local-clock input value as local time and emit a UTC
+// ISO string. `new Date("YYYY-MM-DDTHH:MM")` (no offset) is parsed as local.
+function fromDatetimeLocal(value: string | null | undefined): string | null {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
 }
 
 function getGuestName(perf: Performances[number]): string {
@@ -70,7 +84,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
     if (!title) return
 
     const type = fd.get('type') as ProgramItemType
-    const start_time = (fd.get('start_time') as string) || null
+    const start_time = fromDatetimeLocal(fd.get('start_time') as string)
     // Duration only applies to 'performance' (Indslag). For any other type,
     // we explicitly null it so old values don't linger after a type change.
     const durationRaw = fd.get('duration_minutes') as string
