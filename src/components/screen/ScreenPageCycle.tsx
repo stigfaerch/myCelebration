@@ -43,6 +43,22 @@ interface Props {
 
 const TRANSITION_MS = 400
 
+const STATIC_KEY_LABELS: Record<string, string> = {
+  tasks: 'Opgaver',
+  camera: 'Kamera',
+  photos: 'Billeder',
+  program: 'Program',
+  hvor: 'Hvor',
+  deltagere: 'Deltagere',
+  minder: 'Minder',
+  galleri: 'Galleri',
+}
+
+function itemTitle(item: MixedScreenItem): string {
+  if (item.kind === 'page') return item.title
+  return STATIC_KEY_LABELS[item.staticKey] ?? item.staticKey
+}
+
 /**
  * Render a single MixedScreenItem as a fullscreen slide. Pure presentational
  * — no transition logic here. Each `kind`/`staticKey` branch dispatches to a
@@ -171,6 +187,7 @@ export function ScreenPageCycle({
   // single-item assignment. The cycle step explicitly resets this to
   // `false` before bumping currentIndex, so transitions still work.
   const [animateIn, setAnimateIn] = React.useState(true)
+  const [progressFill, setProgressFill] = React.useState(0)
 
   const instanceId = React.useId()
 
@@ -231,6 +248,19 @@ export function ScreenPageCycle({
       setPreviousIndex(null)
     }
   }, [items.length, currentIndex])
+
+  // ── Progress bar fill ─────────────────────────────────────────────────
+  // Two-step state flip: snap to 0, then commit 100 on the next frame so the
+  // CSS `transition: width <cycleSeconds>s linear` animates over the slide.
+  React.useEffect(() => {
+    setProgressFill(0)
+    const raf = window.requestAnimationFrame(() => {
+      setProgressFill(100)
+    })
+    return () => {
+      window.cancelAnimationFrame(raf)
+    }
+  }, [currentIndex, cycleSeconds])
 
   // ── Realtime subscription ─────────────────────────────────────────────
   React.useEffect(() => {
@@ -326,6 +356,10 @@ export function ScreenPageCycle({
     }
   }
 
+  const isGallery =
+    current.kind === 'static' && current.staticKey === 'galleri'
+  const showIndicators = items.length > 1 && !isGallery
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-slate-950">
       {previous && (
@@ -336,6 +370,34 @@ export function ScreenPageCycle({
       <div className="absolute inset-0" style={incomingStyle}>
         <CycleItemView item={current} />
       </div>
+      {showIndicators && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+            {items.map((_, i) => (
+              <div
+                key={i}
+                className={`h-2 w-2 rounded-full transition-all duration-300 ${
+                  i === safeCurrentIndex
+                    ? 'scale-125 bg-white'
+                    : 'bg-white/30'
+                }`}
+              />
+            ))}
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+            <div
+              className="h-full bg-white/60"
+              style={{
+                width: `${progressFill}%`,
+                transition: `width ${Math.max(2, cycleSeconds)}s linear`,
+              }}
+            />
+          </div>
+          <div className="absolute bottom-6 right-8 text-5xl text-white/60">
+            Næste: <span className="text-white/90">{itemTitle(items[(safeCurrentIndex + 1) % items.length])}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
