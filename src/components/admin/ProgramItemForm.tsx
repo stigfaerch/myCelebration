@@ -117,10 +117,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
     const parent_id = parent_id_raw || null
     const notes = (fd.get('notes') as string).trim() || null
 
-    const type_icon =
-      type === 'event' || !isValidIconForType(type, selectedIconKey)
-        ? null
-        : selectedIconKey
+    const type_icon = isValidIconForType(type, selectedIconKey) ? selectedIconKey : null
 
     const formData = {
       title,
@@ -209,7 +206,7 @@ export function ProgramItemForm({ item, performances, items, defaultParentId, on
         </select>
       </div>
 
-      {selectedType !== 'event' && PROGRAM_TYPE_ICONS[selectedType].length > 0 && (
+      {PROGRAM_TYPE_ICONS[selectedType].length > 0 && (
         <div className="space-y-1">
           <span className="text-sm font-medium">Ikon</span>
           <div className="flex flex-wrap gap-2">

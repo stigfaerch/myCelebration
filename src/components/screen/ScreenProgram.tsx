@@ -77,7 +77,7 @@ function ProgramRowView({
     item.type === 'performance' && (perfTitle || performer)
       ? [perfTitle, performer].filter(Boolean).join(' · ')
       : null
-  const renderIcon = showIcons && item.type !== 'event' && item.type_icon
+  const renderIcon = showIcons && item.type_icon
 
   return (
     <li

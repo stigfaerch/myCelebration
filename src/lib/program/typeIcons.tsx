@@ -1,14 +1,30 @@
 import {
   AlertCircle,
+  Beer,
+  Cake,
+  Camera,
   Coffee,
+  Cookie,
   Crown,
   Drama,
+  Flag,
+  Flame,
+  Gift,
+  Heart,
   Info,
+  MapPin,
   Mic,
   Music,
+  PartyPopper,
   Pause,
+  Pizza,
   Sparkles,
+  Sun,
+  Tent,
   Theater,
+  Users,
+  Utensils,
+  Wine,
   type LucideIcon,
 } from 'lucide-react'
 import type { ProgramItemType } from '@/lib/actions/program'
@@ -20,7 +36,25 @@ export interface ProgramIconOption {
 }
 
 export const PROGRAM_TYPE_ICONS: Record<ProgramItemType, ProgramIconOption[]> = {
-  event: [],
+  event: [
+    { key: 'coffee', label: 'Kaffe', Icon: Coffee },
+    { key: 'cake', label: 'Kage', Icon: Cake },
+    { key: 'wine', label: 'Vin', Icon: Wine },
+    { key: 'beer', label: 'Øl', Icon: Beer },
+    { key: 'utensils', label: 'Middag', Icon: Utensils },
+    { key: 'pizza', label: 'Pizza', Icon: Pizza },
+    { key: 'cookie', label: 'Snack', Icon: Cookie },
+    { key: 'party-popper', label: 'Fest', Icon: PartyPopper },
+    { key: 'gift', label: 'Gave', Icon: Gift },
+    { key: 'heart', label: 'Kærlighed', Icon: Heart },
+    { key: 'users', label: 'Forsamling', Icon: Users },
+    { key: 'camera', label: 'Foto', Icon: Camera },
+    { key: 'tent', label: 'Udendørs', Icon: Tent },
+    { key: 'flag', label: 'Start/slut', Icon: Flag },
+    { key: 'sun', label: 'Sol', Icon: Sun },
+    { key: 'map-pin', label: 'Sted', Icon: MapPin },
+    { key: 'flame', label: 'Bål', Icon: Flame },
+  ],
   info: [
     { key: 'info', label: 'Info', Icon: Info },
     { key: 'alert-circle', label: 'Bemærk', Icon: AlertCircle },
@@ -53,6 +87,8 @@ export function getProgramIconComponent(key: string | null | undefined): LucideI
 }
 
 export function getDefaultIconKey(type: ProgramItemType): string | null {
+  // Event has icon options but no default — admin must opt in per item.
+  if (type === 'event') return null
   const opts = PROGRAM_TYPE_ICONS[type]
   return opts.length > 0 ? opts[0].key : null
 }
