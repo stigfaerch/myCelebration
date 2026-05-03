@@ -81,8 +81,8 @@ function ProgramRowView({
 
   return (
     <li
-      className={`rounded-2xl border border-white/10 bg-white/5 px-8 py-5 ${
-        indented ? 'ml-12' : ''
+      className={`rounded-2xl border border-white/10 bg-white/5 px-6 py-4 ${
+        indented ? 'ml-6' : ''
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-4">
@@ -130,8 +130,8 @@ export function ScreenProgram({ items, showIcons = true }: Props) {
 
   return (
     <div className="absolute inset-0 overflow-auto bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-full max-w-6xl flex-col px-12 py-16">
-        <h1 className="mb-12 text-center text-7xl font-bold tracking-tight">
+      <div className="flex min-h-full flex-col px-8 py-8">
+        <h1 className="mb-8 text-center text-7xl font-bold tracking-tight">
           Program
         </h1>
         {topLevel.length === 0 ? (
@@ -139,11 +139,11 @@ export function ScreenProgram({ items, showIcons = true }: Props) {
             Programmet er ikke klar endnu
           </p>
         ) : (
-          <ul className="space-y-6">
+          <ul className="columns-2 gap-8">
             {topLevel.map((item) => {
               const children = childrenByParent.get(item.id) ?? []
               return (
-                <li key={item.id}>
+                <li key={item.id} className="mb-6 break-inside-avoid">
                   <ul className="space-y-3">
                     <ProgramRowView item={item} indented={false} showIcons={showIcons} />
                     {children.length > 0 ? (
